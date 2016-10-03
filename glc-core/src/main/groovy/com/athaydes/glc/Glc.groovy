@@ -1,6 +1,8 @@
 package com.athaydes.glc
 
 import groovy.transform.CompileStatic
+import groovy.transform.PackageScope
+import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.expr.ClosureExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.Expression
@@ -18,83 +20,92 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 @CompileStatic
 class Glc {
 
-    private final GlcStatementChecker glcStatementChecker = new GlcStatementChecker()
+    private final GlcStatementChecker checker
+    private final GroovyShell shell
 
-    void run() {
-        def glcASTCustomizer = new SecureASTCustomizer(
-                methodDefinitionAllowed: false
-        )
+    Glc() {
+        this.checker = new GlcStatementChecker()
 
-        glcASTCustomizer.addStatementCheckers( glcStatementChecker )
+        SecureASTCustomizer glcASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
+        glcASTCustomizer.addStatementCheckers( checker )
 
         def compilerConfig = new CompilerConfiguration()
+
         compilerConfig.addCompilationCustomizers( glcASTCustomizer )
-        def shell = new GroovyShell( compilerConfig )
 
-        String input
-        def nextLine = {
-            print "glc > "
-            System.in.newReader().readLine()
-        }
-
-        while ( ( input = nextLine() ) != 'exit' ) {
-            try {
-                def result = shell.evaluate( input )
-                assert result instanceof Closure
-                println "GLC expression compiled ok!"
-                println "Closure returns ${glcStatementChecker.outputNode}"
-            } catch ( Throwable t ) {
-                println "ERROR: $t"
-            } finally {
-                glcStatementChecker.reset()
-            }
-        }
-
-        println "Bye!"
+        this.shell = new GroovyShell( compilerConfig )
     }
 
-    static void main( String[] args ) {
-        new Glc().run()
+    GlcProcedure compile( String script ) {
+        try {
+            def runnable = shell.evaluate( script )
+            return checker.getGlcProcedureFor( runnable as Closure )
+        } finally {
+            checker.reset()
+        }
     }
+
 }
 
+@CompileStatic
+@PackageScope
 class GlcStatementChecker implements SecureASTCustomizer.StatementChecker {
 
-    class State {
-        boolean parsingTopLevelBlock
-        boolean parsingTopLevelClosure
-        boolean returnStatementFound
+    @SuppressWarnings( "GrFinalVariableAccess" )
+    final class State {
+        final boolean parsingTopLevelBlock
+        final boolean parsingTopLevelClosure
+        final boolean returnStatementFound
+
+        // implementation required to work with @CompileStatic
+        State( Map<String, Boolean> args ) {
+            assert args.size() <= 1
+            this.parsingTopLevelBlock = args.getOrDefault( 'parsingTopLevelBlock', false )
+            this.parsingTopLevelClosure = args.getOrDefault( 'parsingTopLevelClosure', false )
+            this.returnStatementFound = args.getOrDefault( 'returnStatementFound', false )
+        }
+
     }
 
     private State state = new State( parsingTopLevelBlock: true )
     private Statement currentStatement
+    private List<GlcProcedureParameter> parameters
 
     void reset() {
         state = new State( parsingTopLevelBlock: true )
+        parameters = null
     }
 
-    Map getOutputNode() {
-        if ( currentStatement instanceof BlockStatement ) {
-            currentStatement = currentStatement.statements.last()
+    GlcProcedure getGlcProcedureFor( Closure procedure ) {
+        if ( parameters == null ) {
+            throw new IllegalStateException( "Must compile procedure before trying to read it" )
         }
 
-        Expression expression =
-                currentStatement instanceof ReturnStatement ?
-                        currentStatement.expression :
-                        currentStatement instanceof ExpressionStatement ?
-                                currentStatement.expression :
-                                null
+        println "The last statement was $currentStatement"
 
-        println "LAST Expression is $expression"
+        if ( currentStatement instanceof BlockStatement ) {
+            final block = currentStatement as BlockStatement
+            if ( !block.statements.isEmpty() ) {
+                currentStatement = block.statements.last()
+            } else {
+                throw new AssertionError( error( currentStatement, "Procedure is empty" ) )
+            }
+        }
+
+        if ( !( currentStatement instanceof ReturnStatement ) ) {
+            throw new AssertionError( error( currentStatement, "No return statement" ) )
+        }
+
+        Expression expression = ( currentStatement as ReturnStatement ).expression
 
         if ( expression instanceof DeclarationExpression ) {
-            expression = expression.variableExpression
+            expression = ( expression as DeclarationExpression ).variableExpression
         }
 
         if ( expression instanceof VariableExpression ) {
-            [ type    : expression.type.typeClass,
-              generics: expression.type.genericsTypes,
-              name    : expression.name ]
+            final varExp = expression as VariableExpression
+            final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
+            return new GlcProcedure( parameters, output, procedure )
         } else {
             throw new AssertionError( error( currentStatement, "Procedure does not return a named variable." ) )
         }
@@ -112,32 +123,33 @@ class GlcStatementChecker implements SecureASTCustomizer.StatementChecker {
             assert statement.expression instanceof ClosureExpression, error( statement, generalError )
             def closure = statement.expression as ClosureExpression
 
-            List<Map> parameters = [ ]
-            for ( parameter in closure.parameters ) {
-                parameters << [
-                        type    : parameter.type.typeClass,
-                        generics: parameter.type.genericsTypes,
-                        name    : parameter.name
-                ]
+            List<GlcProcedureParameter> parameters = closure.parameters.collect { Parameter parameter ->
+                new GlcProcedureParameter( GenericType.create( parameter.type ), parameter.name )
             }
+
+            this.parameters = parameters
 
             println "Closure parameters: $parameters"
             println "Closure code: ${closure.code}"
 
-            state = new State()
+            state = new State( [ : ] )
         } else if ( state.returnStatementFound ) {
             throw new AssertionError( error( statement, "Return statement must be the last statement in a procedure." ) )
-        } else if ( statement instanceof ReturnStatement ) {
-            state = new State( returnStatementFound: true )
         } else {
-            println "VALID STATEMENT: $statement"
+            if ( statement instanceof ReturnStatement ) {
+                state = new State( returnStatementFound: true )
+                println "RETURN STATEMENT: $statement"
+            } else {
+                println "VALID STATEMENT: $statement"
+            }
+
             currentStatement = statement
         }
 
         return true
     }
 
-    static String error( Statement statement, String message ) {
+    static def error( Statement statement, String message ) {
         "Error at line ${statement?.lineNumber ?: 1}: $message"
     }
 
