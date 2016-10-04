@@ -15,7 +15,7 @@ import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 
 /**
- *
+ * Groovy Logic Controller.
  */
 @CompileStatic
 class Glc {
@@ -105,6 +105,9 @@ class GlcStatementChecker implements SecureASTCustomizer.StatementChecker {
         if ( expression instanceof VariableExpression ) {
             final varExp = expression as VariableExpression
             final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
+            if ( output in parameters ) {
+                throw new AssertionError( "Procedure depends on its own output" as Object )
+            }
             return new GlcProcedure( parameters, output, procedure )
         } else {
             throw new AssertionError( error( currentStatement, "Procedure does not return a named variable." ) )
