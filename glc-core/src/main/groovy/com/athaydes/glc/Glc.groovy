@@ -2,6 +2,7 @@ package com.athaydes.glc
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import groovy.util.logging.Slf4j
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.stmt.Statement
@@ -65,9 +66,11 @@ class GlcProcedures {
 }
 
 @GroovyASTTransformation( phase = CompilePhase.SEMANTIC_ANALYSIS )
+@Slf4j
 @CompileStatic
 @PackageScope
 class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
+
     private final GlcProcedureCompiler glcProcedureCompiler = new GlcProcedureCompiler()
 
     @Override
@@ -81,21 +84,22 @@ class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
             throw new AssertionError( ( Object ) ( 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses ) )
         }
 
-        println "------------------------ Visiting AST: ${source}"
-        println "${classNodes.size()} nodes found"
+        log.debug "------------------------ Visiting AST: {}", source
+        log.debug "{} nodes found", classNodes.size()
+
         classNodes.each { node ->
             if ( node instanceof ClassNode ) {
                 def runMethod = node.methods.find { it.name == 'run' && it.parameters.size() == 0 }
                 if ( runMethod ) {
-                    println "Run method found: $runMethod"
-                    println "Code ${runMethod.code}"
+                    log.debug "Run method found: {}", runMethod
+                    log.trace "Code {}", runMethod.code
                     add glcProcedureCompiler.compile( runMethod.code )
                 }
             }
         }
-        println "------------------------ Done AST"
 
-        println "All procedures: ${allProcedures}"
+        log.debug "------------------------ Done AST"
+        log.trace "All procedures: {}", allProcedures
     }
 }
 
