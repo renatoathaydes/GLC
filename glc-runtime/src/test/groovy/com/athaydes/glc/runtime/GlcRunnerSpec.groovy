@@ -4,6 +4,7 @@ import com.athaydes.glc.CompiledGlcProcedure
 import com.athaydes.glc.GenericType
 import com.athaydes.glc.GlcProcedure
 import com.athaydes.glc.GlcProcedureParameter
+import com.athaydes.glc.GlcProcedures
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -29,7 +30,7 @@ class GlcRunnerSpec extends Specification {
         ]
 
         when: 'The GLC Runner runs those procedures'
-        glcRunner.run( procedures )
+        glcRunner.run( new GlcProcedures( procedures ) )
 
         then: 'They are run immediately'
         counter1 == 1

@@ -1,13 +1,13 @@
 package com.athaydes.glc.runtime
 
-import com.athaydes.glc.GlcProcedure
+import com.athaydes.glc.GlcProcedures
 import groovy.transform.CompileStatic
 
 @CompileStatic
 class GlcRunner {
 
-    void run( List<GlcProcedure> glcProcedures ) {
-        final immediateRun = glcProcedures.findAll { GlcProcedure procedure -> procedure.inputs.empty }
+    void run( GlcProcedures glcProcedures ) {
+        final immediateRun = glcProcedures.emptyInputProcedures
         immediateRun*.runnable*.call()
     }
 

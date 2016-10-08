@@ -20,7 +20,7 @@ import org.codehaus.groovy.transform.ASTTransformation
 class Glc {
 
     private final GroovyShell shell
-    private final GlcProcedures glcProcedures
+    private final CompiledGlcProcedures glcProcedures
 
     Glc() {
         final glcASTVisitor = new GlcASTVisitor()
@@ -35,12 +35,12 @@ class Glc {
         this.glcProcedures = glcASTVisitor
     }
 
-    List<GlcProcedure> compile( String script ) {
+    GlcProcedures compile( String script ) {
         shell.evaluate( script )
-        allProcedures.collect { CompiledGlcProcedure procedure ->
+        new GlcProcedures( allProcedures.collect { CompiledGlcProcedure procedure ->
             final runnable = shell.getVariable( procedure.closureName ) as Closure
             new GlcProcedure( procedure, runnable )
-        } as List<GlcProcedure>
+        } as List<GlcProcedure> )
     }
 
     @PackageScope
@@ -75,10 +75,49 @@ class GlcError extends Error {
 }
 
 @CompileStatic
-@PackageScope
 class GlcProcedures {
+
+    private final Map<GlcProcedureParameter, GlcProcedure> inputMap
+    private final Map<GlcProcedureParameter, GlcProcedure> outputMap
+
+    final List<GlcProcedure> emptyInputProcedures
+    final List<GlcProcedure> allProcedures
+
+    GlcProcedures( List<GlcProcedure> glcProcedures ) {
+        Map<GlcProcedureParameter, GlcProcedure> inputMap = [ : ]
+        Map<GlcProcedureParameter, GlcProcedure> outputMap = [ : ]
+
+        for ( GlcProcedure procedure in glcProcedures ) {
+            for ( input in procedure.inputs ) {
+                inputMap[ ( GlcProcedureParameter ) input ] = procedure
+            }
+            outputMap[ procedure.output ] = procedure
+        }
+
+        this.allProcedures = glcProcedures
+        this.emptyInputProcedures = glcProcedures.findAll { GlcProcedure procedure ->
+            procedure.inputs.empty
+        }.asImmutable()
+
+        this.inputMap = inputMap.asImmutable()
+        this.outputMap = outputMap.asImmutable()
+    }
+
+    Optional<GlcProcedure> getProcedureReading( GlcProcedureParameter parameter ) {
+        Optional.ofNullable( inputMap[ parameter ] )
+    }
+
+    Optional<GlcProcedure> getProducerOf( GlcProcedureParameter parameter ) {
+        Optional.ofNullable( outputMap[ parameter ] )
+    }
+
+}
+
+@CompileStatic
+class CompiledGlcProcedures {
     private final List<CompiledGlcProcedure> compiledGlcProcedures = [ ]
 
+    @PackageScope
     void add( List<CompiledGlcProcedure> procedures ) {
         compiledGlcProcedures.addAll( procedures )
     }
@@ -86,12 +125,13 @@ class GlcProcedures {
     List<CompiledGlcProcedure> getAllProcedures() {
         compiledGlcProcedures.asImmutable()
     }
+
 }
 
 @Slf4j
 @CompileStatic
 @PackageScope
-class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
+class GlcASTVisitor extends CompiledGlcProcedures implements ASTTransformation {
 
     private final GlcProcedureCompiler glcProcedureCompiler = new GlcProcedureCompiler()
 
