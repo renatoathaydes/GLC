@@ -7,18 +7,18 @@ import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
 
-/**
- *
- */
 class GlcCompilationCustomizer extends CompilationCustomizer {
 
-    GlcCompilationCustomizer() {
+    private final GlcASTVisitor visitor
+
+    GlcCompilationCustomizer( GlcASTVisitor visitor ) {
         super( CompilePhase.SEMANTIC_ANALYSIS )
+        this.visitor = visitor
     }
 
     @Override
     void call( SourceUnit source, GeneratorContext context, ClassNode classNode )
             throws CompilationFailedException {
-        transformation.visit( null, source )
+        visitor.visit( null, source )
     }
 }

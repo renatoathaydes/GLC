@@ -91,13 +91,35 @@ class GlcCompilerSpec extends Specification {
         glc.compile( invalidProcedure )
 
         then: 'The expected error is reported'
-        def error = thrown( AssertionError )
-        error.message ==~ expectedError
+        def error = thrown( GlcError )
+        error.message == expectedError
+        error.lineNumber == expectedLineNumber
 
-        // TODO fix error handling
         where:
-        invalidProcedure | expectedError
-        ''               | 'Error at line (-)?\\d+: Invalid GLC procedure\\. Not a single closure\\..*'
+        invalidProcedure     | expectedLineNumber | expectedError
+        ''                   | -1                 | 'Error at line -1: Invalid GLC procedure. Not a closure.'
+        '2'                  | 1                  | 'Error at line 1: Invalid GLC procedure. Not a closure.'
+        '{->}'               | 1                  | 'Error at line 1: GLC procedure is empty.'
+        '{String s -> 3}'    | 1                  | 'Error at line 1: GLC Procedure does not return a named variable.'
+        '{String s ->\n' +
+                'String t = "0"\n' +
+                'return 4\n' +
+                '}'          | 3                  | 'Error at line 3: GLC Procedure does not return a named variable.'
+        '{String s -> s}'    | 1                  | 'Error at line 1: GLC Procedure depends on its own output.'
+        '{String s ->\n' +
+                'String t = "0"\n' +
+                'return s\n' +
+                '}'          | 3                  | 'Error at line 3: GLC Procedure depends on its own output.'
+        'int i = 0;\n' +
+                '{String s ->\n' +
+                'String t = "0"\n' +
+                'return t\n' +
+                '}'          | 1                  | 'Error at line 1: Invalid GLC procedure. Not a closure.'
+        '{String s ->\n' +
+                'String t = "0"\n' +
+                'return t\n' +
+                '}\n' +
+                'int i = 0;' | 5                  | 'Error at line 5: Invalid GLC procedure. Not a closure.'
     }
 
 }

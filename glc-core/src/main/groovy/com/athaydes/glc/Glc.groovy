@@ -1,5 +1,6 @@
 package com.athaydes.glc
 
+import groovy.transform.Canonical
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
@@ -9,7 +10,7 @@ import org.codehaus.groovy.ast.stmt.Statement
 import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.SourceUnit
-import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
+import org.codehaus.groovy.control.customizers.CompilationCustomizer
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 import org.codehaus.groovy.transform.ASTTransformation
 import org.codehaus.groovy.transform.GroovyASTTransformation
@@ -25,7 +26,7 @@ class Glc {
 
     Glc() {
         final glcASTVisitor = new GlcASTVisitor()
-        ASTTransformationCustomizer glcUnitASTCustomizer = new ASTTransformationCustomizer( glcASTVisitor )
+        CompilationCustomizer glcUnitASTCustomizer = new GlcCompilationCustomizer( glcASTVisitor )
         SecureASTCustomizer secureASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
         //glcASTCustomizer.addStatementCheckers( new ASTPrinter() )
 
@@ -49,6 +50,30 @@ class Glc {
         glcProcedures.allProcedures
     }
 
+}
+
+@CompileStatic
+@Canonical
+class GlcError extends Error {
+
+    static final String generalError = 'Invalid GLC procedure. Not a closure.'
+
+    final int lineNumber
+
+    static String errorMessage( int lineNumber, String message ) {
+        "Error at line $lineNumber: $message"
+    }
+
+    static void preCondition( condition, int lineNumber, String error = generalError ) {
+        if ( !condition ) {
+            throw new GlcError( lineNumber, error )
+        }
+    }
+
+    GlcError( int lineNumber, String message ) {
+        super( errorMessage( lineNumber, message ) )
+        this.lineNumber = lineNumber
+    }
 }
 
 @CompileStatic
@@ -81,7 +106,7 @@ class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
                 .find { String name -> name != Script.name }
 
         if ( unrecognizedClasses ) {
-            throw new AssertionError( ( Object ) ( 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses ) )
+            throw new GlcError( 1, 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses )
         }
 
         log.debug "------------------------ Visiting AST: {}", source

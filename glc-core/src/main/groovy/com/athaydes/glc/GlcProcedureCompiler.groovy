@@ -16,6 +16,8 @@ import org.codehaus.groovy.syntax.Types
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import static com.athaydes.glc.GlcError.preCondition
+
 /**
  *
  */
@@ -23,20 +25,20 @@ import java.util.concurrent.atomic.AtomicInteger
 @PackageScope
 class GlcProcedureCompiler {
 
-    static final String generalError = 'Invalid GLC procedure. Not a single closure'
     static final String GLC_CLOSURE_NAME_PREFIX = '___glc_procedure___'
     static AtomicInteger closureCounter = new AtomicInteger( 0 )
 
     List<CompiledGlcProcedure> compile( Statement statement ) {
         final List<CompiledGlcProcedure> result = [ ]
 
-        assert statement instanceof BlockStatement, error( statement, generalError )
-        final List<Statement> topLevelStatements = statement.statements
+        preCondition( statement instanceof BlockStatement, statement.lineNumber )
+        final List<Statement> topLevelStatements = ( statement as BlockStatement ).statements
 
         topLevelStatements.eachWithIndex { Statement topLevelStatement, int index ->
-            assert topLevelStatement instanceof ExpressionStatement, error( topLevelStatement, generalError )
+            preCondition( topLevelStatement instanceof ExpressionStatement, topLevelStatement.lineNumber )
             def topLevelExpression = ( ExpressionStatement ) topLevelStatement
-            assert topLevelExpression.expression instanceof ClosureExpression, error( topLevelStatement, generalError )
+
+            preCondition( topLevelExpression.expression instanceof ClosureExpression, topLevelStatement.lineNumber )
             def closureExpression = ( ClosureExpression ) topLevelExpression.expression
             def closureName = GLC_CLOSURE_NAME_PREFIX + closureCounter.getAndIncrement()
             def closureStatement = namedClosure( closureExpression, closureName )
@@ -59,6 +61,9 @@ class GlcProcedureCompiler {
                                                                     String closureName ) {
         def closureStatements = ( closureExpression.code as BlockStatement ).statements
 
+        preCondition( !closureStatements.isEmpty(), closureExpression.lineNumber,
+                'GLC procedure is empty.' )
+
         def lastStatement = closureStatements.last()
 
         Expression expression
@@ -79,16 +84,12 @@ class GlcProcedureCompiler {
             final varExp = expression as VariableExpression
             final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
             if ( output in parameters ) {
-                throw new AssertionError( "Procedure depends on its own output" as Object )
+                throw new GlcError( expression.lineNumber, "GLC Procedure depends on its own output." )
             }
             return new CompiledGlcProcedure( closureName, parameters, output )
         } else {
-            throw new AssertionError( error( lastStatement, "Procedure does not return a named variable." ) )
+            throw new GlcError( lastStatement.lineNumber, "GLC Procedure does not return a named variable." )
         }
-    }
-
-    private static def error( Statement statement, String message ) {
-        "Error at line ${statement?.lineNumber ?: 1}: $message"
     }
 
 }
