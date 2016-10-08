@@ -1,1 +1,3 @@
 include 'glc-core'
+include 'glc-runtime'
+
