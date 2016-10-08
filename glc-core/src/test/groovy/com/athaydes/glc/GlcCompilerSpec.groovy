@@ -12,6 +12,8 @@ class GlcCompilerSpec extends Specification {
     static final GenericType LONG_TYPE = new GenericType( Long, GenericType.EMPTY )
 
     static final GenericType LIST_OF_STRINGS_TYPE = new GenericType( List, [ STRING_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_INTS_TYPE = new GenericType( List, [ INTEGER_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List, [ FLOAT_TYPE ] as GenericType[] )
 
     static GenericType optionalOf( GenericType genericType ) {
         new GenericType( Optional, [ genericType ] as GenericType[] )
@@ -100,6 +102,40 @@ class GlcCompilerSpec extends Specification {
         procedures.collect { it.closureName }.unique().size() == 3
     }
 
+    def "Different GLC procedures using inputs with generic types can be compiled"() {
+        when:
+        'GLC Procedures whose inputs are different only by the generic type parameter ' +
+                'are compiled in the same compilation unit'
+        glc.compile( '{ List<String> list -> String t = s + "!"; return t };' +
+                '{ List<Integer> list, Optional<Map<Integer, Long>> opt -> ' +
+                'Map<Float, Double> map = [0f:2d]; return map };\n\n' +
+                '{ List<Float> list -> int integer= 0; integer };' )
+
+        List<CompiledGlcProcedure> procedures = glc.allProcedures
+
+        then: 'The correct number of procedures is compiled'
+        procedures.size() == 3
+
+        then: 'The first GlcProcedure is compiled as expected'
+        procedures[ 0 ].closureName
+        procedures[ 0 ].inputs == [ new GlcProcedureParameter( LIST_OF_STRINGS_TYPE, 'list' ) ]
+        procedures[ 0 ].output == new GlcProcedureParameter( STRING_TYPE, 't' )
+
+        and: 'The second GlcProcedure is compiled as expected'
+        procedures[ 1 ].closureName
+        procedures[ 1 ].inputs == [ new GlcProcedureParameter( LIST_OF_INTS_TYPE, 'list' ),
+                                    new GlcProcedureParameter( optionalOf( mapOf( INTEGER_TYPE, LONG_TYPE ) ), 'opt' ) ]
+        procedures[ 1 ].output == new GlcProcedureParameter( mapOf( FLOAT_TYPE, DOUBLE_TYPE ), 'map' )
+
+        and: 'The third GlcProcedure is compiled as expected'
+        procedures[ 2 ].closureName
+        procedures[ 2 ].inputs == [ new GlcProcedureParameter( LIST_OF_FLOATS_TYPE, 'list' ) ]
+        procedures[ 2 ].output == new GlcProcedureParameter( INTEGER_TYPE, 'integer' )
+
+        and: 'All GlcProcedures have a different name'
+        procedures.collect { it.closureName }.unique().size() == 3
+    }
+
     def "Invalid GLC procedures cannot be compiled"() {
         when: 'We try to compile an invalid GLC procedure'
         glc.compile( invalidProcedure )
@@ -134,6 +170,40 @@ class GlcCompilerSpec extends Specification {
                 'return t\n' +
                 '}\n' +
                 'int i = 0;' | 5                  | 'Error at line 5: Invalid GLC procedure. Not a closure.'
+        '{String s ->\n' +
+                'String t = "0"\n' +
+                'return t\n' +
+                '};\n' +
+                '{String s ->\n' +
+                'String v = "0"\n' +
+                'return v\n' +
+                '}'          | 5                  | 'Error at line 5: Detected duplicated GLC Procedure parameters.\nDuplicated inputs: [s]'
+        '{String s ->\n' +
+                'String t = "0"\n' +
+                'return t\n' +
+                '};\n' +
+                '{String m ->\n' +
+                'String t = "0"\n' +
+                'return t\n' +
+                '}'          | 7                  | 'Error at line 7: Detected duplicated GLC Procedure parameters.\nDuplicated output: t'
+        '''{ String s, int b ->
+               String t = "0"
+               return t
+           };
+           { String s, int b ->
+               String t = "0"
+               return t
+           };
+           { String a ->
+               String v = "0"
+               return v
+           };
+           { String b ->
+               String v = "0"
+               return v
+           }'''   | 5                  | 'Error at line 5: Detected duplicated GLC Procedure parameters.\n' +
+                'Duplicated inputs: [s, b]\n' +
+                'Duplicated output: t'
     }
 
 }

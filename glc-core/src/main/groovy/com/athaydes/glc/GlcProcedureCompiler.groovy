@@ -28,8 +28,14 @@ class GlcProcedureCompiler {
     static final String GLC_CLOSURE_NAME_PREFIX = '___glc_procedure___'
     static AtomicInteger closureCounter = new AtomicInteger( 0 )
 
-    List<CompiledGlcProcedure> compile( Statement statement ) {
+    List<CompiledGlcProcedure> compile( Statement statement,
+                                        List<CompiledGlcProcedure> existingProcedures ) {
         final List<CompiledGlcProcedure> result = [ ]
+
+        final Set<GlcProcedureParameter> inputs = new HashSet<>(
+                existingProcedures*.inputs.flatten() as List<GlcProcedureParameter> )
+        final Set<GlcProcedureParameter> outputs = new HashSet<>(
+                existingProcedures*.output as List<GlcProcedureParameter> )
 
         preCondition( statement instanceof BlockStatement, statement.lineNumber )
         final List<Statement> topLevelStatements = ( ( BlockStatement ) statement ).statements
@@ -44,10 +50,43 @@ class GlcProcedureCompiler {
             def closureStatement = namedClosure( closureExpression, closureName )
             topLevelStatements.set( index, closureStatement )
 
-            result << createCompiledGlcProcedure( closureExpression, closureName )
+            final glcProcedure = createCompiledGlcProcedure( closureExpression, closureName )
+            verifyParameters( glcProcedure, closureExpression, inputs, outputs )
+            result << glcProcedure
         }
 
         return result
+    }
+
+    private void verifyParameters( CompiledGlcProcedure glcProcedure,
+                                   ClosureExpression closureExpression,
+                                   Set<GlcProcedureParameter> inputs,
+                                   Set<GlcProcedureParameter> outputs ) {
+
+        final Set<String> duplicatedInputs = [ ]
+        String duplicatedOutput = ''
+
+        glcProcedure.inputs.each { GlcProcedureParameter input ->
+            def added = inputs.add( input )
+            if ( !added ) {
+                duplicatedInputs << input.name
+            }
+        }
+
+        def addedOutput = outputs.add( glcProcedure.output )
+        if ( !addedOutput ) {
+            duplicatedOutput = glcProcedure.output.name
+        }
+
+        if ( duplicatedInputs || duplicatedOutput ) {
+            int lineNumber = duplicatedInputs.empty ?
+                    ( ( BlockStatement ) closureExpression.code ).statements.last().lineNumber :
+                    closureExpression.lineNumber
+
+            throw new GlcError( lineNumber, "Detected duplicated GLC Procedure parameters." +
+                    ( duplicatedInputs ? "\nDuplicated inputs: $duplicatedInputs" : '' ) +
+                    ( duplicatedOutput ? "\nDuplicated output: $duplicatedOutput" : '' ) )
+        }
     }
 
     private static Statement namedClosure( ClosureExpression closureExpression, String name ) {

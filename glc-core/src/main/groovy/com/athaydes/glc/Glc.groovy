@@ -118,7 +118,7 @@ class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
                 if ( runMethod ) {
                     log.debug "Run method found: {}", runMethod
                     log.trace "Code {}", runMethod.code
-                    add glcProcedureCompiler.compile( runMethod.code )
+                    add glcProcedureCompiler.compile( runMethod.code, allProcedures )
                 }
             }
         }
