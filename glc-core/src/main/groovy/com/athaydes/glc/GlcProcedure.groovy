@@ -8,9 +8,17 @@ import org.codehaus.groovy.ast.GenericsType
 @CompileStatic
 @Immutable
 class GlcProcedure {
+    @Delegate
+    CompiledGlcProcedure procedure
+    Closure runnable
+}
+
+@CompileStatic
+@Immutable
+class CompiledGlcProcedure {
+    String closureName
     List<GlcProcedureParameter> inputs
     GlcProcedureParameter output
-    Closure runnable
 }
 
 @CompileStatic

@@ -2,17 +2,16 @@ package com.athaydes.glc
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
-import org.codehaus.groovy.ast.Parameter
-import org.codehaus.groovy.ast.expr.ClosureExpression
-import org.codehaus.groovy.ast.expr.DeclarationExpression
-import org.codehaus.groovy.ast.expr.Expression
-import org.codehaus.groovy.ast.expr.VariableExpression
-import org.codehaus.groovy.ast.stmt.BlockStatement
-import org.codehaus.groovy.ast.stmt.ExpressionStatement
-import org.codehaus.groovy.ast.stmt.ReturnStatement
+import org.codehaus.groovy.ast.ASTNode
+import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.control.SourceUnit
+import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
+import org.codehaus.groovy.transform.ASTTransformation
+import org.codehaus.groovy.transform.GroovyASTTransformation
 
 /**
  * Groovy Logic Controller.
@@ -20,140 +19,92 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 @CompileStatic
 class Glc {
 
-    private final GlcStatementChecker checker
     private final GroovyShell shell
+    private final GlcProcedures glcProcedures
 
     Glc() {
-        this.checker = new GlcStatementChecker()
-
-        SecureASTCustomizer glcASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
-        glcASTCustomizer.addStatementCheckers( checker )
+        final glcASTVisitor = new GlcASTVisitor()
+        ASTTransformationCustomizer glcUnitASTCustomizer = new ASTTransformationCustomizer( glcASTVisitor )
+        SecureASTCustomizer secureASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
+        //glcASTCustomizer.addStatementCheckers( new ASTPrinter() )
 
         def compilerConfig = new CompilerConfiguration()
-
-        compilerConfig.addCompilationCustomizers( glcASTCustomizer )
+        compilerConfig.addCompilationCustomizers( secureASTCustomizer, glcUnitASTCustomizer )
 
         this.shell = new GroovyShell( compilerConfig )
+        this.glcProcedures = glcASTVisitor
     }
 
-    GlcProcedure compile( String script ) {
-        try {
-            def runnable = shell.evaluate( script )
-            return checker.getGlcProcedureFor( runnable as Closure )
-        } finally {
-            checker.reset()
-        }
+    List<GlcProcedure> compile( String script ) {
+        shell.evaluate( script )
+        allProcedures.collect { CompiledGlcProcedure procedure ->
+            final runnable = shell.getVariable( procedure.closureName ) as Closure
+            new GlcProcedure( procedure, runnable )
+        } as List<GlcProcedure>
+    }
+
+    @PackageScope
+    List<CompiledGlcProcedure> getAllProcedures() {
+        glcProcedures.allProcedures
     }
 
 }
 
 @CompileStatic
 @PackageScope
-class GlcStatementChecker implements SecureASTCustomizer.StatementChecker {
+class GlcProcedures {
+    private final List<CompiledGlcProcedure> compiledGlcProcedures = [ ]
 
-    @SuppressWarnings( "GrFinalVariableAccess" )
-    final class State {
-        final boolean parsingTopLevelBlock
-        final boolean parsingTopLevelClosure
-        final boolean returnStatementFound
-
-        // implementation required to work with @CompileStatic
-        State( Map<String, Boolean> args ) {
-            assert args.size() <= 1
-            this.parsingTopLevelBlock = args.getOrDefault( 'parsingTopLevelBlock', false )
-            this.parsingTopLevelClosure = args.getOrDefault( 'parsingTopLevelClosure', false )
-            this.returnStatementFound = args.getOrDefault( 'returnStatementFound', false )
-        }
-
+    void add( List<CompiledGlcProcedure> procedures ) {
+        compiledGlcProcedures.addAll( procedures )
     }
 
-    private State state = new State( parsingTopLevelBlock: true )
-    private Statement currentStatement
-    private List<GlcProcedureParameter> parameters
-
-    void reset() {
-        state = new State( parsingTopLevelBlock: true )
-        parameters = null
+    List<CompiledGlcProcedure> getAllProcedures() {
+        compiledGlcProcedures.asImmutable()
     }
+}
 
-    GlcProcedure getGlcProcedureFor( Closure procedure ) {
-        if ( parameters == null ) {
-            throw new IllegalStateException( "Must compile procedure before trying to read it" )
-        }
-
-        println "The last statement was $currentStatement"
-
-        if ( currentStatement instanceof BlockStatement ) {
-            final block = currentStatement as BlockStatement
-            if ( !block.statements.isEmpty() ) {
-                currentStatement = block.statements.last()
-            } else {
-                throw new AssertionError( error( currentStatement, "Procedure is empty" ) )
-            }
-        }
-
-        if ( !( currentStatement instanceof ReturnStatement ) ) {
-            throw new AssertionError( error( currentStatement, "No return statement" ) )
-        }
-
-        Expression expression = ( currentStatement as ReturnStatement ).expression
-
-        if ( expression instanceof DeclarationExpression ) {
-            expression = ( expression as DeclarationExpression ).variableExpression
-        }
-
-        if ( expression instanceof VariableExpression ) {
-            final varExp = expression as VariableExpression
-            final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
-            if ( output in parameters ) {
-                throw new AssertionError( "Procedure depends on its own output" as Object )
-            }
-            return new GlcProcedure( parameters, output, procedure )
-        } else {
-            throw new AssertionError( error( currentStatement, "Procedure does not return a named variable." ) )
-        }
-    }
+@GroovyASTTransformation( phase = CompilePhase.SEMANTIC_ANALYSIS )
+@CompileStatic
+@PackageScope
+class GlcASTVisitor extends GlcProcedures implements ASTTransformation {
+    private final GlcProcedureCompiler glcProcedureCompiler = new GlcProcedureCompiler()
 
     @Override
-    boolean isAuthorized( Statement statement ) {
-        final generalError = 'Invalid GLC procedure. Not a single closure'
-        if ( state.parsingTopLevelBlock ) {
-            assert statement instanceof BlockStatement, error( statement, generalError )
-            assert statement.statements.size() == 1, error( statement, generalError )
-            state = new State( parsingTopLevelClosure: true )
-        } else if ( state.parsingTopLevelClosure ) {
-            assert statement instanceof ExpressionStatement, error( statement, generalError )
-            assert statement.expression instanceof ClosureExpression, error( statement, generalError )
-            def closure = statement.expression as ClosureExpression
+    void visit( ASTNode[] nodes, SourceUnit source ) {
+        final classNodes = source.AST.classes
 
-            List<GlcProcedureParameter> parameters = closure.parameters.collect { Parameter parameter ->
-                new GlcProcedureParameter( GenericType.create( parameter.type ), parameter.name )
-            }
+        final unrecognizedClasses = classNodes.collect { ClassNode n -> n?.superClass?.name }
+                .find { String name -> name != Script.name }
 
-            this.parameters = parameters
-
-            println "Closure parameters: $parameters"
-            println "Closure code: ${closure.code}"
-
-            state = new State( [ : ] )
-        } else if ( state.returnStatementFound ) {
-            throw new AssertionError( error( statement, "Return statement must be the last statement in a procedure." ) )
-        } else {
-            if ( statement instanceof ReturnStatement ) {
-                state = new State( returnStatementFound: true )
-                println "RETURN STATEMENT: $statement"
-            } else {
-                println "VALID STATEMENT: $statement"
-            }
-
-            currentStatement = statement
+        if ( unrecognizedClasses ) {
+            throw new AssertionError( ( Object ) ( 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses ) )
         }
 
-        return true
-    }
+        println "------------------------ Visiting AST: ${source}"
+        println "${classNodes.size()} nodes found"
+        classNodes.each { node ->
+            if ( node instanceof ClassNode ) {
+                def runMethod = node.methods.find { it.name == 'run' && it.parameters.size() == 0 }
+                if ( runMethod ) {
+                    println "Run method found: $runMethod"
+                    println "Code ${runMethod.code}"
+                    add glcProcedureCompiler.compile( runMethod.code )
+                }
+            }
+        }
+        println "------------------------ Done AST"
 
-    static def error( Statement statement, String message ) {
-        "Error at line ${statement?.lineNumber ?: 1}: $message"
+        println "All procedures: ${allProcedures}"
     }
-
 }
+
+@PackageScope
+class ASTPrinter implements SecureASTCustomizer.StatementChecker {
+    @Override
+    boolean isAuthorized( Statement expression ) {
+        println "-- $expression"
+        true
+    }
+}
+
