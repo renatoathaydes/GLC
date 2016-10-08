@@ -7,13 +7,11 @@ import groovy.util.logging.Slf4j
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.stmt.Statement
-import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 import org.codehaus.groovy.transform.ASTTransformation
-import org.codehaus.groovy.transform.GroovyASTTransformation
 
 /**
  * Groovy Logic Controller.
@@ -90,7 +88,6 @@ class GlcProcedures {
     }
 }
 
-@GroovyASTTransformation( phase = CompilePhase.SEMANTIC_ANALYSIS )
 @Slf4j
 @CompileStatic
 @PackageScope
