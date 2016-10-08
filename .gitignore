@@ -3,9 +3,12 @@ out/
 lib/
 target/
 build/
+.gradle/
 
 *.jar
 *.iml
 *.class
 .project
 .classpath
+
+!gradle/wrapper/gradle-wrapper.jar
