@@ -32,7 +32,7 @@ class GlcProcedureCompiler {
         final List<CompiledGlcProcedure> result = [ ]
 
         preCondition( statement instanceof BlockStatement, statement.lineNumber )
-        final List<Statement> topLevelStatements = ( statement as BlockStatement ).statements
+        final List<Statement> topLevelStatements = ( ( BlockStatement ) statement ).statements
 
         topLevelStatements.eachWithIndex { Statement topLevelStatement, int index ->
             preCondition( topLevelStatement instanceof ExpressionStatement, topLevelStatement.lineNumber )
@@ -59,7 +59,7 @@ class GlcProcedureCompiler {
 
     private static CompiledGlcProcedure createCompiledGlcProcedure( ClosureExpression closureExpression,
                                                                     String closureName ) {
-        def closureStatements = ( closureExpression.code as BlockStatement ).statements
+        def closureStatements = ( ( BlockStatement ) closureExpression.code ).statements
 
         preCondition( !closureStatements.isEmpty(), closureExpression.lineNumber,
                 'GLC procedure is empty.' )
@@ -81,7 +81,7 @@ class GlcProcedureCompiler {
                 new GlcProcedureParameter( GenericType.create( parameter.type ), parameter.name )
             }
 
-            final varExp = expression as VariableExpression
+            final varExp = ( VariableExpression ) expression
             final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
             if ( output in parameters ) {
                 throw new GlcError( expression.lineNumber, "GLC Procedure depends on its own output." )

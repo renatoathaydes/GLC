@@ -38,6 +38,20 @@ class GlcCompilerSpec extends Specification {
         procedure.output == new GlcProcedureParameter( STRING_TYPE, 't' )
     }
 
+    def "A GLC procedure without input can be compiled"() {
+        when: 'A GLC Procedure is compiled'
+        glc.compile( '{ -> String t = "!"; t }' )
+        CompiledGlcProcedure procedure = glc.allProcedures.last()
+
+        then: 'The correct number of procedures is compiled'
+        glc.allProcedures.size() == 1
+
+        and: 'The GlcProcedures class provides the latest procedure as expected'
+        procedure.closureName
+        procedure.inputs == [ ]
+        procedure.output == new GlcProcedureParameter( STRING_TYPE, 't' )
+    }
+
     def "A GLC procedure using generic types can be compiled"() {
         when: 'A GLC Procedure with generic types is compiled'
         glc.compile( '{ List<String> list, Optional<Map<Integer, Long>> opt -> ' +
