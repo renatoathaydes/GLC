@@ -8,14 +8,15 @@ import org.codehaus.groovy.control.CompilationFailedException
 import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
+import org.codehaus.groovy.transform.ASTTransformation
 
 @Slf4j
 @CompileStatic
 class GlcCompilationCustomizer extends CompilationCustomizer {
 
-    private final GlcASTVisitor visitor
+    private final ASTTransformation visitor
 
-    GlcCompilationCustomizer( GlcASTVisitor visitor ) {
+    GlcCompilationCustomizer( ASTTransformation visitor ) {
         super( CompilePhase.SEMANTIC_ANALYSIS )
         this.visitor = visitor
     }

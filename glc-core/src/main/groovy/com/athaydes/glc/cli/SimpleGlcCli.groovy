@@ -1,7 +1,7 @@
 package com.athaydes.glc.cli
 
 import com.athaydes.glc.Glc
-import com.athaydes.glc.GlcProcedure
+import com.athaydes.glc.procedure.GlcProcedure
 
 /**
  *
@@ -31,7 +31,7 @@ class SimpleGlcCli {
 //                    }
                     glc.eval( input.substring( 3 ) )
                 } else {
-                    glc.compile( input )
+                    glc.compileGlcProcedures( input )
                     println "GLC expression compiled ok!"
                 }
             } catch ( Throwable t ) {

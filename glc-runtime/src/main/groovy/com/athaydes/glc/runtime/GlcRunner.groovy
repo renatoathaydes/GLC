@@ -1,6 +1,6 @@
 package com.athaydes.glc.runtime
 
-import com.athaydes.glc.GlcProcedures
+import com.athaydes.glc.procedure.GlcProcedures
 import groovy.transform.CompileStatic
 
 @CompileStatic

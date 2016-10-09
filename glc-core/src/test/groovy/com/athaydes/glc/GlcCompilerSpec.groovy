@@ -1,5 +1,8 @@
 package com.athaydes.glc
 
+import com.athaydes.glc.procedure.CompiledGlcProcedure
+import com.athaydes.glc.procedure.GenericType
+import com.athaydes.glc.procedure.GlcProcedureParameter
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -28,7 +31,7 @@ class GlcCompilerSpec extends Specification {
 
     def "A simple GLC procedure can be compiled"() {
         when: 'A GLC Procedure is compiled'
-        glc.compile( '{ String s -> String t = s + "!"; return t }' )
+        glc.compileGlcProcedures( '{ String s -> String t = s + "!"; return t }' )
         CompiledGlcProcedure procedure = glc.allProcedures.last()
 
         then: 'The correct number of procedures is compiled'
@@ -42,7 +45,7 @@ class GlcCompilerSpec extends Specification {
 
     def "A GLC procedure without input can be compiled"() {
         when: 'A GLC Procedure is compiled'
-        glc.compile( '{ -> String t = "!"; t }' )
+        glc.compileGlcProcedures( '{ -> String t = "!"; t }' )
         CompiledGlcProcedure procedure = glc.allProcedures.last()
 
         then: 'The correct number of procedures is compiled'
@@ -56,7 +59,7 @@ class GlcCompilerSpec extends Specification {
 
     def "A GLC procedure using generic types can be compiled"() {
         when: 'A GLC Procedure with generic types is compiled'
-        glc.compile( '{ List<String> list, Optional<Map<Integer, Long>> opt -> ' +
+        glc.compileGlcProcedures( '{ List<String> list, Optional<Map<Integer, Long>> opt -> ' +
                 'Map<Float, Double> map = [0f:2d]; return map }' )
         CompiledGlcProcedure procedure = glc.allProcedures.last()
 
@@ -72,7 +75,7 @@ class GlcCompilerSpec extends Specification {
 
     def "Many GLC procedures can be compiled"() {
         when: 'Many GLC Procedures are compiled in the same compilation unit'
-        glc.compile( '{ String s -> String t = s + "!"; return t };' +
+        glc.compileGlcProcedures( '{ String s -> String t = s + "!"; return t };' +
                 '{ List<String> list, Optional<Map<Integer, Long>> opt -> ' +
                 'Map<Float, Double> map = [0f:2d]; return map };\n\n' +
                 '{ Long abc -> int integer= 0; integer };' )
@@ -106,7 +109,7 @@ class GlcCompilerSpec extends Specification {
         when:
         'GLC Procedures whose inputs are different only by the generic type parameter ' +
                 'are compiled in the same compilation unit'
-        glc.compile( '{ List<String> list -> String t = s + "!"; return t };' +
+        glc.compileGlcProcedures( '{ List<String> list -> String t = s + "!"; return t };' +
                 '{ List<Integer> list, Optional<Map<Integer, Long>> opt -> ' +
                 'Map<Float, Double> map = [0f:2d]; return map };\n\n' +
                 '{ List<Float> list -> int integer= 0; integer };' )
@@ -138,7 +141,7 @@ class GlcCompilerSpec extends Specification {
 
     def "Invalid GLC procedures cannot be compiled"() {
         when: 'We try to compile an invalid GLC procedure'
-        glc.compile( invalidProcedure )
+        glc.compileGlcProcedures( invalidProcedure )
 
         then: 'The expected error is reported'
         def error = thrown( GlcError )

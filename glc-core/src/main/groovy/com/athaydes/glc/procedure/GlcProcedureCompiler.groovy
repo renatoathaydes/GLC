@@ -1,5 +1,6 @@
-package com.athaydes.glc
+package com.athaydes.glc.procedure
 
+import com.athaydes.glc.GlcError
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.Parameter
@@ -18,9 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import static com.athaydes.glc.GlcError.preCondition
 
-/**
- *
- */
 @CompileStatic
 @PackageScope
 class GlcProcedureCompiler {

@@ -1,10 +1,10 @@
 package com.athaydes.glc.runtime
 
-import com.athaydes.glc.CompiledGlcProcedure
-import com.athaydes.glc.GenericType
-import com.athaydes.glc.GlcProcedure
-import com.athaydes.glc.GlcProcedureParameter
-import com.athaydes.glc.GlcProcedures
+import com.athaydes.glc.procedure.CompiledGlcProcedure
+import com.athaydes.glc.procedure.GenericType
+import com.athaydes.glc.procedure.GlcProcedure
+import com.athaydes.glc.procedure.GlcProcedureParameter
+import com.athaydes.glc.procedure.GlcProcedures
 import spock.lang.Specification
 import spock.lang.Subject
 

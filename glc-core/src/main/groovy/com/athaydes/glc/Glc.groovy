@@ -1,17 +1,13 @@
 package com.athaydes.glc
 
+import com.athaydes.glc.procedure.CompiledGlcProcedure
+import com.athaydes.glc.procedure.GlcProcedureInterpreter
+import com.athaydes.glc.procedure.GlcProcedures
 import groovy.transform.Canonical
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
-import groovy.util.logging.Slf4j
-import org.codehaus.groovy.ast.ASTNode
-import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.stmt.Statement
-import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.control.SourceUnit
-import org.codehaus.groovy.control.customizers.CompilationCustomizer
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
-import org.codehaus.groovy.transform.ASTTransformation
 
 /**
  * Groovy Logic Controller.
@@ -19,33 +15,19 @@ import org.codehaus.groovy.transform.ASTTransformation
 @CompileStatic
 class Glc {
 
-    private final GroovyShell shell
-    private final CompiledGlcProcedures glcProcedures
+    private final GlcProcedureInterpreter glcProcedureInterpreter
 
     Glc() {
-        final glcASTVisitor = new GlcASTVisitor()
-        CompilationCustomizer glcUnitASTCustomizer = new GlcCompilationCustomizer( glcASTVisitor )
-        SecureASTCustomizer secureASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
-        //glcASTCustomizer.addStatementCheckers( new ASTPrinter() )
-
-        def compilerConfig = new CompilerConfiguration()
-        compilerConfig.addCompilationCustomizers( secureASTCustomizer, glcUnitASTCustomizer )
-
-        this.shell = new GroovyShell( compilerConfig )
-        this.glcProcedures = glcASTVisitor
+        glcProcedureInterpreter = new GlcProcedureInterpreter()
     }
 
-    GlcProcedures compile( String script ) {
-        shell.evaluate( script )
-        new GlcProcedures( allProcedures.collect { CompiledGlcProcedure procedure ->
-            final runnable = shell.getVariable( procedure.closureName ) as Closure
-            new GlcProcedure( procedure, runnable )
-        } as List<GlcProcedure> )
+    GlcProcedures compileGlcProcedures( String script ) {
+        glcProcedureInterpreter.compile( script )
     }
 
     @PackageScope
     List<CompiledGlcProcedure> getAllProcedures() {
-        glcProcedures.allProcedures
+        glcProcedureInterpreter.allProcedures
     }
 
 }
@@ -74,96 +56,6 @@ class GlcError extends Error {
     }
 }
 
-@CompileStatic
-class GlcProcedures {
-
-    private final Map<GlcProcedureParameter, GlcProcedure> inputMap
-    private final Map<GlcProcedureParameter, GlcProcedure> outputMap
-
-    final List<GlcProcedure> emptyInputProcedures
-    final List<GlcProcedure> allProcedures
-
-    GlcProcedures( List<GlcProcedure> glcProcedures ) {
-        Map<GlcProcedureParameter, GlcProcedure> inputMap = [ : ]
-        Map<GlcProcedureParameter, GlcProcedure> outputMap = [ : ]
-
-        for ( GlcProcedure procedure in glcProcedures ) {
-            for ( input in procedure.inputs ) {
-                inputMap[ ( GlcProcedureParameter ) input ] = procedure
-            }
-            outputMap[ procedure.output ] = procedure
-        }
-
-        this.allProcedures = glcProcedures
-        this.emptyInputProcedures = glcProcedures.findAll { GlcProcedure procedure ->
-            procedure.inputs.empty
-        }.asImmutable()
-
-        this.inputMap = inputMap.asImmutable()
-        this.outputMap = outputMap.asImmutable()
-    }
-
-    Optional<GlcProcedure> getProcedureReading( GlcProcedureParameter parameter ) {
-        Optional.ofNullable( inputMap[ parameter ] )
-    }
-
-    Optional<GlcProcedure> getProducerOf( GlcProcedureParameter parameter ) {
-        Optional.ofNullable( outputMap[ parameter ] )
-    }
-
-}
-
-@CompileStatic
-class CompiledGlcProcedures {
-    private final List<CompiledGlcProcedure> compiledGlcProcedures = [ ]
-
-    @PackageScope
-    void add( List<CompiledGlcProcedure> procedures ) {
-        compiledGlcProcedures.addAll( procedures )
-    }
-
-    List<CompiledGlcProcedure> getAllProcedures() {
-        compiledGlcProcedures.asImmutable()
-    }
-
-}
-
-@Slf4j
-@CompileStatic
-@PackageScope
-class GlcASTVisitor extends CompiledGlcProcedures implements ASTTransformation {
-
-    private final GlcProcedureCompiler glcProcedureCompiler = new GlcProcedureCompiler()
-
-    @Override
-    void visit( ASTNode[] nodes, SourceUnit source ) {
-        final classNodes = source.AST.classes
-
-        final unrecognizedClasses = classNodes.collect { ClassNode n -> n?.superClass?.name }
-                .find { String name -> name != Script.name }
-
-        if ( unrecognizedClasses ) {
-            throw new GlcError( 1, 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses )
-        }
-
-        log.debug "------------------------ Visiting AST: {}", source
-        log.debug "{} nodes found", classNodes.size()
-
-        classNodes.each { node ->
-            if ( node instanceof ClassNode ) {
-                def runMethod = node.methods.find { it.name == 'run' && it.parameters.size() == 0 }
-                if ( runMethod ) {
-                    log.debug "Run method found: {}", runMethod
-                    log.trace "Code {}", runMethod.code
-                    add glcProcedureCompiler.compile( runMethod.code, allProcedures )
-                }
-            }
-        }
-
-        log.debug "------------------------ Done AST"
-        log.trace "All procedures: {}", allProcedures
-    }
-}
 
 @PackageScope
 class ASTPrinter implements SecureASTCustomizer.StatementChecker {
