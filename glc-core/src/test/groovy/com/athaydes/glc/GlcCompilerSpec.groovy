@@ -149,30 +149,30 @@ class GlcCompilerSpec extends Specification {
         error.lineNumber == expectedLineNumber
 
         where:
-        invalidProcedure     | expectedLineNumber | expectedError
-        ''                   | -1                 | 'Error at line -1: Invalid GLC procedure. Not a closure.'
-        '2'                  | 1                  | 'Error at line 1: Invalid GLC procedure. Not a closure.'
-        '{->}'               | 1                  | 'Error at line 1: GLC procedure is empty.'
-        '{String s -> 3}'    | 1                  | 'Error at line 1: GLC Procedure does not return a named variable.'
+        invalidProcedure    |expectedLineNumber|expectedError
+        ''                  |-1                |'Error at line -1: Invalid GLC procedure. Not a closure.'
+        '2'                 |1                 |'Error at line 1: Invalid GLC procedure. Not a closure.'
+        '{->}'              |1                 |'Error at line 1: GLC procedure is empty.'
+        '{String s -> 3}'   |1                 |'Error at line 1: GLC Procedure does not return a named variable.'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return 4\n' +
-                '}'          | 3                  | 'Error at line 3: GLC Procedure does not return a named variable.'
-        '{String s -> s}'    | 1                  | 'Error at line 1: GLC Procedure depends on its own output.'
+                '}'         |3                 |'Error at line 3: GLC Procedure does not return a named variable.'
+        '{String s -> s}'   |1                 |'Error at line 1: GLC Procedure depends on its own output.'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return s\n' +
-                '}'          | 3                  | 'Error at line 3: GLC Procedure depends on its own output.'
+                '}'         |3                 |'Error at line 3: GLC Procedure depends on its own output.'
         'int i = 0;\n' +
                 '{String s ->\n' +
                 'String t = "0"\n' +
                 'return t\n' +
-                '}'          | 1                  | 'Error at line 1: Invalid GLC procedure. Not a closure.'
+                '}'         |1                 |'Error at line 1: Invalid GLC procedure. Not a closure.'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return t\n' +
                 '}\n' +
-                'int i = 0;' | 5                  | 'Error at line 5: Invalid GLC procedure. Not a closure.'
+                'int i = 0;'|5                 |'Error at line 5: Invalid GLC procedure. Not a closure.'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return t\n' +
@@ -180,7 +180,7 @@ class GlcCompilerSpec extends Specification {
                 '{String s ->\n' +
                 'String v = "0"\n' +
                 'return v\n' +
-                '}'          | 5                  | 'Error at line 5: Detected duplicated GLC Procedure parameters.\nDuplicated inputs: [s]'
+                '}'         |5                 |'Error at line 5: Detected duplicated GLC Procedure parameters.\nDuplicated inputs: [s]'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return t\n' +
@@ -188,7 +188,19 @@ class GlcCompilerSpec extends Specification {
                 '{String m ->\n' +
                 'String t = "0"\n' +
                 'return t\n' +
-                '}'          | 7                  | 'Error at line 7: Detected duplicated GLC Procedure parameters.\nDuplicated output: t'
+                '}'         |7                 |'Error at line 7: Detected duplicated GLC Procedure parameters.\nDuplicated output: t'
+        '''{ Date date ->
+             String v = "0"
+             return v
+           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor IO): java.util.Date.'
+        '''{ Optional<List<Date>> date ->
+             String v = "0"
+             return v
+           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor IO): java.util.Date.'
+        '''{ String s ->
+             Date date = 0L as Date
+             return date
+           }'''  |2                 |'Error at line 2: Illegal output (not a GLC entity nor IO): java.util.Date.'
         '''{ String s, int b ->
                String t = "0"
                return t
@@ -204,7 +216,7 @@ class GlcCompilerSpec extends Specification {
            { String b ->
                String v = "0"
                return v
-           }'''   | 5                  | 'Error at line 5: Detected duplicated GLC Procedure parameters.\n' +
+           }'''  |5                 |'Error at line 5: Detected duplicated GLC Procedure parameters.\n' +
                 'Duplicated inputs: [s, b]\n' +
                 'Duplicated output: t'
     }

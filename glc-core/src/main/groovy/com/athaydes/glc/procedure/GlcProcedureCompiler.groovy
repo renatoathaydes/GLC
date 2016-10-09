@@ -1,8 +1,13 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcError
+import com.athaydes.glc.driver.GlcDriver
+import com.athaydes.glc.driver.GlcIn
+import com.athaydes.glc.driver.GlcOut
 import groovy.transform.CompileStatic
+import groovy.transform.Immutable
 import groovy.transform.PackageScope
+import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.expr.BinaryExpression
 import org.codehaus.groovy.ast.expr.ClosureExpression
@@ -22,6 +27,12 @@ import static com.athaydes.glc.GlcError.preCondition
 @CompileStatic
 @PackageScope
 class GlcProcedureCompiler {
+
+    private static final Set<String> ALLOWED_NATIVE_TYPES = [
+            'float', 'int', 'double', 'long', 'byte', 'short', 'char',
+            String.name, Float.name, Integer.name, Double.name, Long.name, Byte.name, Short.name, Character.name,
+            List.name, Map.name, Set.name, Optional.name
+    ].toSet().asImmutable()
 
     static final String GLC_CLOSURE_NAME_PREFIX = '___glc_procedure___'
     static AtomicInteger closureCounter = new AtomicInteger( 0 )
@@ -115,10 +126,13 @@ class GlcProcedureCompiler {
 
         if ( expression instanceof VariableExpression ) {
             List<GlcProcedureParameter> parameters = closureExpression.parameters.collect { Parameter parameter ->
+                validateInput( parameter.type )
                 new GlcProcedureParameter( GenericType.create( parameter.type ), parameter.name )
             }
 
             final varExp = ( VariableExpression ) expression
+            validateOutput( varExp.type )
+
             final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
             if ( output in parameters ) {
                 throw new GlcError( expression.lineNumber, "GLC Procedure depends on its own output." )
@@ -129,4 +143,49 @@ class GlcProcedureCompiler {
         }
     }
 
+    static void validateInput( ClassNode input ) {
+        boolean ok = false
+        if ( subtypeOf( GlcIn, input ) || subtypeOf( GlcDriver, input ) ) {
+            ok = true
+        } else if ( input.annotations.collect { it.classNode.name }.contains( Immutable.name ) ) {
+            ok = true
+        } else if ( input.name in ALLOWED_NATIVE_TYPES ) {
+            ok = true
+        }
+
+        if ( ok ) {
+            if ( input.genericsTypes ) for ( node in input.genericsTypes*.type ) {
+                validateInput( node as ClassNode )
+            }
+        } else {
+            throw new GlcError( input.lineNumber, "Illegal parameter type (not a GLC entity nor IO): ${input.name}." )
+        }
+    }
+
+    static void validateOutput( ClassNode output ) {
+        boolean ok = false
+        if ( subtypeOf( GlcOut, output ) ) {
+            ok = true
+        } else if ( output.annotations.collect { it.classNode.name }.contains( Immutable.name ) ) {
+            ok = true
+        } else if ( output.name in ALLOWED_NATIVE_TYPES ) {
+            ok = true
+        }
+
+        if ( ok ) {
+            if ( output.genericsTypes ) for ( node in output.genericsTypes*.type ) {
+                validateOutput( node as ClassNode )
+            }
+        } else {
+            throw new GlcError( output.lineNumber, "Illegal output (not a GLC entity nor IO): ${output.name}." )
+        }
+    }
+
+    private static boolean subtypeOf( Class type, ClassNode node ) {
+        def currentType = node.typeClass
+        while ( currentType && currentType != type ) {
+            currentType = currentType.superclass
+        }
+        return ( currentType == node.typeClass )
+    }
 }

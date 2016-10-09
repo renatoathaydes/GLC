@@ -10,9 +10,6 @@ import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.transform.ASTTransformation
 
-/**
- *
- */
 @Slf4j
 @CompileStatic
 @PackageScope
@@ -33,7 +30,7 @@ class GlcProcedureASTVisitor extends CompiledGlcProcedures
                 .find { String name -> name != Script.name }
 
         if ( unrecognizedClasses ) {
-            throw new GlcError( 1, 'Compilation Unit contains unrecognized classes: ' + unrecognizedClasses )
+            throw new GlcError( 1, 'GLC Procedures Compilation Unit contains unrecognized classes: ' + unrecognizedClasses )
         }
 
         log.debug "------------------------ Visiting AST: {}", source
