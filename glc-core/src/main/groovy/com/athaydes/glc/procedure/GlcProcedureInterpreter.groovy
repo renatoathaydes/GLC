@@ -1,32 +1,25 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcCompilationCustomizer
+import groovy.transform.CompileStatic
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
-import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 
 /**
  *
  */
+@CompileStatic
 class GlcProcedureInterpreter {
 
-    private final GroovyShell shell
-    private final CompiledGlcProcedures glcProcedures
+    private final GlcProcedureASTVisitor glcProceduresASTVisitor
 
-    GlcProcedureInterpreter() {
-        final glcASTVisitor = new GlcProcedureASTVisitor()
-        CompilationCustomizer glcUnitASTCustomizer = new GlcCompilationCustomizer( glcASTVisitor )
-        SecureASTCustomizer secureASTCustomizer = new SecureASTCustomizer( methodDefinitionAllowed: false )
-        //glcASTCustomizer.addStatementCheckers( new ASTPrinter() )
-
-        def compilerConfig = new CompilerConfiguration()
-        compilerConfig.addCompilationCustomizers( secureASTCustomizer, glcUnitASTCustomizer )
-
-        this.shell = new GroovyShell( compilerConfig )
-        this.glcProcedures = glcASTVisitor
+    GlcProcedureInterpreter( CompilerConfiguration compilerConfiguration ) {
+        this.glcProceduresASTVisitor = new GlcProcedureASTVisitor()
+        CompilationCustomizer glcUnitASTCustomizer = new GlcCompilationCustomizer( glcProceduresASTVisitor )
+        compilerConfiguration.addCompilationCustomizers( glcUnitASTCustomizer )
     }
 
-    GlcProcedures compile( String script ) {
+    GlcProcedures compile( GroovyShell shell, String script ) {
         shell.evaluate( script )
         new GlcProcedures( allProcedures.collect { CompiledGlcProcedure procedure ->
             final runnable = shell.getVariable( procedure.closureName ) as Closure
@@ -35,7 +28,11 @@ class GlcProcedureInterpreter {
     }
 
     List<CompiledGlcProcedure> getAllProcedures() {
-        glcProcedures.allProcedures
+        glcProceduresASTVisitor.allProcedures
+    }
+
+    void setEnabled( boolean enabled ) {
+        glcProceduresASTVisitor.enabled = enabled
     }
 
 }

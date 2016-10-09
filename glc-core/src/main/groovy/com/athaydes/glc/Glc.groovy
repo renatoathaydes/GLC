@@ -9,6 +9,7 @@ import groovy.transform.Canonical
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 
 /**
@@ -19,18 +20,26 @@ class Glc {
 
     private final GlcProcedureInterpreter glcProcedureInterpreter
     private final GlcModelInterpreter glcModelInterpreter
+    private final GroovyShell shell
 
     Glc() {
-        glcProcedureInterpreter = new GlcProcedureInterpreter()
-        glcModelInterpreter = new GlcModelInterpreter()
+        final compilerConfig = new CompilerConfiguration()
+        glcProcedureInterpreter = new GlcProcedureInterpreter( compilerConfig )
+        glcModelInterpreter = new GlcModelInterpreter( compilerConfig )
+
+        this.shell = new GroovyShell( compilerConfig )
     }
 
     GlcProcedures compileGlcProcedures( String glcProceduresScript ) {
-        glcProcedureInterpreter.compile( glcProceduresScript )
+        glcModelInterpreter.enabled = false
+        glcProcedureInterpreter.enabled = true
+        glcProcedureInterpreter.compile( shell, glcProceduresScript )
     }
 
     GlcModelEntities compileGlcEntities( String glcModelEntitiesScript ) {
-        glcModelInterpreter.compile( glcModelEntitiesScript )
+        glcModelInterpreter.enabled = true
+        glcProcedureInterpreter.enabled = false
+        glcModelInterpreter.compile( shell, glcModelEntitiesScript )
     }
 
     @PackageScope

@@ -8,22 +8,22 @@ import spock.lang.Subject
 
 class GlcCompilerSpec extends Specification {
 
-    static final GenericType STRING_TYPE = new GenericType( String, GenericType.EMPTY )
-    static final GenericType INTEGER_TYPE = new GenericType( Integer, GenericType.EMPTY )
-    static final GenericType FLOAT_TYPE = new GenericType( Float, GenericType.EMPTY )
-    static final GenericType DOUBLE_TYPE = new GenericType( Double, GenericType.EMPTY )
-    static final GenericType LONG_TYPE = new GenericType( Long, GenericType.EMPTY )
+    static final GenericType STRING_TYPE = new GenericType( String.name, GenericType.EMPTY )
+    static final GenericType INTEGER_TYPE = new GenericType( Integer.name, GenericType.EMPTY )
+    static final GenericType FLOAT_TYPE = new GenericType( Float.name, GenericType.EMPTY )
+    static final GenericType DOUBLE_TYPE = new GenericType( Double.name, GenericType.EMPTY )
+    static final GenericType LONG_TYPE = new GenericType( Long.name, GenericType.EMPTY )
 
-    static final GenericType LIST_OF_STRINGS_TYPE = new GenericType( List, [ STRING_TYPE ] as GenericType[] )
-    static final GenericType LIST_OF_INTS_TYPE = new GenericType( List, [ INTEGER_TYPE ] as GenericType[] )
-    static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List, [ FLOAT_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_STRINGS_TYPE = new GenericType( List.name, [ STRING_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_INTS_TYPE = new GenericType( List.name, [ INTEGER_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List.name, [ FLOAT_TYPE ] as GenericType[] )
 
     static GenericType optionalOf( GenericType genericType ) {
-        new GenericType( Optional, [ genericType ] as GenericType[] )
+        new GenericType( Optional.name, [ genericType ] as GenericType[] )
     }
 
     static GenericType mapOf( GenericType keyType, GenericType valueType ) {
-        new GenericType( Map, [ keyType, valueType ] as GenericType[] )
+        new GenericType( Map.name, [ keyType, valueType ] as GenericType[] )
     }
 
     @Subject

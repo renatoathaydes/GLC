@@ -16,9 +16,13 @@ class GlcCompilationCustomizer extends CompilationCustomizer {
 
     private final ASTTransformation visitor
 
-    GlcCompilationCustomizer( ASTTransformation visitor ) {
-        super( CompilePhase.SEMANTIC_ANALYSIS )
+    GlcCompilationCustomizer( CompilePhase compilePhase, ASTTransformation visitor ) {
+        super( compilePhase )
         this.visitor = visitor
+    }
+
+    GlcCompilationCustomizer( ASTTransformation visitor ) {
+        this( CompilePhase.SEMANTIC_ANALYSIS, visitor )
     }
 
     @Override

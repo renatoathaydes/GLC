@@ -1,14 +1,10 @@
 package com.athaydes.glc.runtime
 
-import com.athaydes.glc.procedure.CompiledGlcProcedure
-import com.athaydes.glc.procedure.GenericType
-import com.athaydes.glc.procedure.GlcProcedure
-import com.athaydes.glc.procedure.GlcProcedureParameter
 import com.athaydes.glc.procedure.GlcProcedures
 import spock.lang.Specification
 import spock.lang.Subject
 
-class GlcRunnerSpec extends Specification {
+class GlcRunnerSpec extends Specification implements GlcTest {
 
     @Subject
     final GlcRunner glcRunner = new GlcRunner()
@@ -70,17 +66,6 @@ class GlcRunnerSpec extends Specification {
         glcRunner.valueOf( parameterI ) == 123
         glcRunner.valueOf( parameterJ ) == 444
         glcRunner.valueOf( parameterS ) == '444'
-    }
-
-    GlcProcedure GlcProcedure( String name,
-                               List<GlcProcedureParameter> inputs,
-                               GlcProcedureParameter output,
-                               Closure runnable ) {
-        new GlcProcedure( new CompiledGlcProcedure( name, inputs, output ), runnable )
-    }
-
-    GlcProcedureParameter GlcParameter( Class type, String name ) {
-        new GlcProcedureParameter( new GenericType( type, GenericType.EMPTY ), name )
     }
 
 }

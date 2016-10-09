@@ -39,11 +39,11 @@ class GlcProcedureParameter {
 class GenericType {
     static final GenericType[] EMPTY = new GenericType[0]
 
-    Class<?> type
+    String type
     GenericType[] parameters
 
     static GenericType create( ClassNode node ) {
-        new GenericType( node.typeClass, parametersOf( node.genericsTypes ) )
+        new GenericType( node.typeClass.name, parametersOf( node.genericsTypes ) )
     }
 
     static GenericType[] parametersOf( GenericsType[] genericsTypes ) {

@@ -58,7 +58,7 @@ class GlcModelSpec extends Specification {
         script                     | expectedErrorMessage
         'def x = 0'                | 'Error at line 1: ' + GlcModelASTVisitor.CODE_IN_SCRIPT_ERROR_MESSAGE
         'x = 0'                    | 'Error at line 1: ' + GlcModelASTVisitor.CODE_IN_SCRIPT_ERROR_MESSAGE
-        'class A { void hi() {} }' | 'Error at line 1: GLC model class may not define methods'
+        'class A { void hi() {} }' | 'Error at line 1: GLC model class may not define methods.'
         '''
         class A {
           int i
@@ -66,7 +66,7 @@ class GlcModelSpec extends Specification {
             this.i = i
           }
         }
-        '''             | 'Error at line 4: GLC model class may not define methods'
+        '''             | 'Error at line 4: GLC model class may not define methods.'
     }
 
 }

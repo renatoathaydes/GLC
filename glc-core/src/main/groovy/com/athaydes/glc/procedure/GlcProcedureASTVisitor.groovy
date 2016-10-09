@@ -1,5 +1,6 @@
 package com.athaydes.glc.procedure
 
+import com.athaydes.glc.GlcASTVisitor
 import com.athaydes.glc.GlcError
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
@@ -15,12 +16,17 @@ import org.codehaus.groovy.transform.ASTTransformation
 @Slf4j
 @CompileStatic
 @PackageScope
-class GlcProcedureASTVisitor extends CompiledGlcProcedures implements ASTTransformation {
+class GlcProcedureASTVisitor extends CompiledGlcProcedures
+        implements GlcASTVisitor, ASTTransformation {
 
     private final GlcProcedureCompiler glcProcedureCompiler = new GlcProcedureCompiler()
 
     @Override
     void visit( ASTNode[] nodes, SourceUnit source ) {
+        if ( !shouldVisit( source ) ) {
+            return
+        }
+
         final classNodes = source.AST.classes
 
         final unrecognizedClasses = classNodes.collect { ClassNode n -> n?.superClass?.name }

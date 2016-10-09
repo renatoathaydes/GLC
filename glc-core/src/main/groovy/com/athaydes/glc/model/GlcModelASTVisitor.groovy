@@ -1,11 +1,10 @@
 package com.athaydes.glc.model
 
+import com.athaydes.glc.GlcASTVisitor
 import com.athaydes.glc.GlcError
 import groovy.transform.CompileStatic
-import groovy.transform.Immutable
 import groovy.util.logging.Slf4j
 import org.codehaus.groovy.ast.ASTNode
-import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.stmt.BlockStatement
@@ -14,24 +13,18 @@ import org.codehaus.groovy.ast.stmt.Statement
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.transform.ASTTransformation
 
-/**
- *
- */
 @Slf4j
 @CompileStatic
-class GlcModelASTVisitor extends GlcModelEntities implements ASTTransformation {
+class GlcModelASTVisitor extends GlcModelEntities
+        implements GlcASTVisitor, ASTTransformation {
 
     static final String CODE_IN_SCRIPT_ERROR_MESSAGE =
             'Unexpected script code in GLC model classes compilation unit. ' +
                     'Only model class definitions expected.'
-    private final Set<String> visitedSourceUnits = [ ]
 
     @Override
     void visit( ASTNode[] nodes, SourceUnit source ) {
-        def alreadyVisited = !visitedSourceUnits.add( source.name )
-
-        if ( alreadyVisited ) {
-            log.debug( "Skipping check on compilation unit as it was already visited: {}", source.name )
+        if ( !shouldVisit( source ) ) {
             return
         }
 
@@ -51,19 +44,9 @@ class GlcModelASTVisitor extends GlcModelEntities implements ASTTransformation {
 
             log.debug( "Checking class {}", node )
 
-            def immutable = node.annotations.find { AnnotationNode -> node.typeClass == Immutable }
-
-            if ( immutable && !immutable.members.isEmpty() ) {
-                throw new GlcError( immutable.lineNumber,
-                        "Problem on GLC model class ${node.name}. " +
-                                "Immutable annotation cannot be customized in GLC model classes." )
-            } else {
-                node.addAnnotation( new AnnotationNode( new ClassNode( Immutable ) ) )
-            }
-
-            if ( !node.methods.empty && node.methods*.name != [ '<clinit>' ] ) {
+            if ( node.methods.any { !it.synthetic } ) {
                 def lineNumber = node.methods.first().lineNumber
-                throw new GlcError( lineNumber, 'GLC model class may not define methods' )
+                throw new GlcError( lineNumber, 'GLC model class may not define methods.' )
             }
 
             add new GlcModelEntity( node.name )
