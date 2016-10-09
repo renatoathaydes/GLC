@@ -3,11 +3,13 @@ package com.athaydes.glc.procedure
 import groovy.transform.CompileStatic
 import groovy.transform.Immutable
 import groovy.transform.PackageScope
+import groovy.transform.ToString
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.GenericsType
 
 @CompileStatic
 @Immutable
+@ToString( includePackage = false )
 class GlcProcedure {
     @Delegate
     CompiledGlcProcedure procedure
@@ -16,6 +18,7 @@ class GlcProcedure {
 
 @CompileStatic
 @Immutable
+@ToString( includePackage = false )
 class CompiledGlcProcedure {
     String closureName
     List<GlcProcedureParameter> inputs
@@ -24,6 +27,7 @@ class CompiledGlcProcedure {
 
 @CompileStatic
 @Immutable
+@ToString( includePackage = false )
 class GlcProcedureParameter {
     GenericType type
     String name
@@ -31,6 +35,7 @@ class GlcProcedureParameter {
 
 @CompileStatic
 @Immutable
+@ToString( includePackage = false )
 class GenericType {
     static final GenericType[] EMPTY = new GenericType[0]
 
@@ -52,6 +57,7 @@ class GenericType {
 }
 
 @CompileStatic
+@ToString( includePackage = false )
 class GlcProcedures {
 
     private final Map<GlcProcedureParameter, GlcProcedure> inputMap
@@ -91,6 +97,7 @@ class GlcProcedures {
 }
 
 @CompileStatic
+@ToString( includePackage = false )
 class CompiledGlcProcedures {
     private final List<CompiledGlcProcedure> compiledGlcProcedures = [ ]
 
