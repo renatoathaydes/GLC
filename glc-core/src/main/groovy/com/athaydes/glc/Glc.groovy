@@ -1,5 +1,7 @@
 package com.athaydes.glc
 
+import com.athaydes.glc.model.GlcModelEntities
+import com.athaydes.glc.model.GlcModelInterpreter
 import com.athaydes.glc.procedure.CompiledGlcProcedure
 import com.athaydes.glc.procedure.GlcProcedureInterpreter
 import com.athaydes.glc.procedure.GlcProcedures
@@ -16,13 +18,19 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer
 class Glc {
 
     private final GlcProcedureInterpreter glcProcedureInterpreter
+    private final GlcModelInterpreter glcModelInterpreter
 
     Glc() {
         glcProcedureInterpreter = new GlcProcedureInterpreter()
+        glcModelInterpreter = new GlcModelInterpreter()
     }
 
-    GlcProcedures compileGlcProcedures( String script ) {
-        glcProcedureInterpreter.compile( script )
+    GlcProcedures compileGlcProcedures( String glcProceduresScript ) {
+        glcProcedureInterpreter.compile( glcProceduresScript )
+    }
+
+    GlcModelEntities compileGlcEntities( String glcModelEntitiesScript ) {
+        glcModelInterpreter.compile( glcModelEntitiesScript )
     }
 
     @PackageScope
