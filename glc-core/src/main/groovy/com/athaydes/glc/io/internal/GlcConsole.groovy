@@ -1,6 +1,9 @@
-package com.athaydes.glc.driver
+package com.athaydes.glc.io.internal
 
+import com.athaydes.glc.io.api.GlcIn
+import com.athaydes.glc.io.api.GlcOut
 import groovy.transform.CompileStatic
+import groovy.transform.Immutable
 import groovy.util.logging.Slf4j
 
 import java.util.function.Consumer
@@ -10,9 +13,10 @@ import java.util.function.Consumer
  */
 @Slf4j
 @CompileStatic
-class GlcConsole implements GlcOut<Object>, GlcIn<String> {
-    String name = 'out'
-    Class<Object> type = Object
+@Immutable
+class GlcConsole implements GlcIn<String>, GlcOut<Object> {
+    Class<String> inputType = String
+    Class<Object> outputType = Object
 
     @Override
     void take( Object instance ) {
