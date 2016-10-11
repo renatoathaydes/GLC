@@ -1,11 +1,16 @@
 package com.athaydes.glc.procedure
 
+import com.athaydes.glc.GlcError
 import groovy.transform.CompileStatic
 import groovy.transform.Immutable
 import groovy.transform.PackageScope
 import groovy.transform.ToString
+import groovy.util.logging.Slf4j
+import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.GenericsType
+import org.codehaus.groovy.ast.expr.ConstantExpression
+import org.codehaus.groovy.ast.expr.Expression
 
 @CompileStatic
 @Immutable
@@ -36,14 +41,37 @@ class GlcProcedureParameter {
 @CompileStatic
 @Immutable
 @ToString( includePackage = false )
+class AnnotationInfo {
+    GenericType type
+    Map<String, Object> members
+}
+
+@Slf4j
+@CompileStatic
+@Immutable
+@ToString( includePackage = false )
 class GenericType {
     static final GenericType[] EMPTY = new GenericType[0]
 
     String type
     GenericType[] parameters
+    List<AnnotationInfo> annotations
 
-    static GenericType create( ClassNode node ) {
-        new GenericType( node.typeClass.name, parametersOf( node.genericsTypes ) )
+    static GenericType create( ClassNode node, List<AnnotationNode> annotationNodes = [ ] ) {
+        final annotations = annotationNodes.collect { AnnotationNode a ->
+            def members = a.members.collectEntries { String k, Expression v ->
+                if ( v instanceof ConstantExpression ) {
+                    [ k, ( ( ConstantExpression ) v ).value ]
+                } else {
+                    log.warn( "Annotation {} on {} has non-constant expression: {}", a.classNode, node, v )
+                    throw new GlcError( v.lineNumber, "Annotation members must contain constants only" )
+                }
+            } as Map<String, Object>
+
+            new AnnotationInfo( create( a.classNode ), members )
+        } as List<AnnotationInfo>
+
+        new GenericType( node.typeClass.name, parametersOf( node.genericsTypes ), annotations )
     }
 
     static GenericType[] parametersOf( GenericsType[] genericsTypes ) {

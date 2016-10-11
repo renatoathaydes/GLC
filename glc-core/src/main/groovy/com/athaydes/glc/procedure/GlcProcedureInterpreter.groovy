@@ -1,13 +1,12 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcCompilationCustomizer
+import com.athaydes.glc.io.GlcAnnotation
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
+import org.codehaus.groovy.control.customizers.ImportCustomizer
 
-/**
- *
- */
 @CompileStatic
 class GlcProcedureInterpreter {
 
@@ -16,7 +15,9 @@ class GlcProcedureInterpreter {
     GlcProcedureInterpreter( CompilerConfiguration compilerConfiguration ) {
         this.glcProceduresASTVisitor = new GlcProcedureASTVisitor()
         CompilationCustomizer glcUnitASTCustomizer = new GlcCompilationCustomizer( glcProceduresASTVisitor )
-        compilerConfiguration.addCompilationCustomizers( glcUnitASTCustomizer )
+        def importCustomizer = new ImportCustomizer()
+        importCustomizer.addStarImports( GlcAnnotation.package.name )
+        compilerConfiguration.addCompilationCustomizers( glcUnitASTCustomizer, importCustomizer )
     }
 
     GlcProcedures compile( GroovyShell shell, String script ) {

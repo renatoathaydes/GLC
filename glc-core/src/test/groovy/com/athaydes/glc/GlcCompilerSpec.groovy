@@ -1,5 +1,7 @@
 package com.athaydes.glc
 
+import com.athaydes.glc.io.Console
+import com.athaydes.glc.procedure.AnnotationInfo
 import com.athaydes.glc.procedure.CompiledGlcProcedure
 import com.athaydes.glc.procedure.GenericType
 import com.athaydes.glc.procedure.GlcProcedureParameter
@@ -8,22 +10,28 @@ import spock.lang.Subject
 
 class GlcCompilerSpec extends Specification {
 
-    static final GenericType STRING_TYPE = new GenericType( String.name, GenericType.EMPTY )
-    static final GenericType INTEGER_TYPE = new GenericType( Integer.name, GenericType.EMPTY )
-    static final GenericType FLOAT_TYPE = new GenericType( Float.name, GenericType.EMPTY )
-    static final GenericType DOUBLE_TYPE = new GenericType( Double.name, GenericType.EMPTY )
-    static final GenericType LONG_TYPE = new GenericType( Long.name, GenericType.EMPTY )
+    static final GenericType STRING_TYPE = new GenericType( String.name, GenericType.EMPTY, [ ] )
+    static final GenericType INTEGER_TYPE = new GenericType( Integer.name, GenericType.EMPTY, [ ] )
+    static final GenericType FLOAT_TYPE = new GenericType( Float.name, GenericType.EMPTY, [ ] )
+    static final GenericType DOUBLE_TYPE = new GenericType( Double.name, GenericType.EMPTY, [ ] )
+    static final GenericType LONG_TYPE = new GenericType( Long.name, GenericType.EMPTY, [ ] )
 
-    static final GenericType LIST_OF_STRINGS_TYPE = new GenericType( List.name, [ STRING_TYPE ] as GenericType[] )
-    static final GenericType LIST_OF_INTS_TYPE = new GenericType( List.name, [ INTEGER_TYPE ] as GenericType[] )
-    static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List.name, [ FLOAT_TYPE ] as GenericType[] )
+    static final GenericType LIST_OF_STRINGS_TYPE = new GenericType( List.name, [ STRING_TYPE ] as GenericType[], [ ] )
+    static final GenericType LIST_OF_INTS_TYPE = new GenericType( List.name, [ INTEGER_TYPE ] as GenericType[], [ ] )
+    static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List.name, [ FLOAT_TYPE ] as GenericType[], [ ] )
+
+    static final AnnotationInfo CONSOLE_ANNOTATION = new AnnotationInfo(
+            new GenericType( Console.name, GenericType.EMPTY, [ ] ), [ : ] )
+    static final CONSOLE_ANNOTATED_OBJECT = new GenericType( Object.name, GenericType.EMPTY, [ CONSOLE_ANNOTATION ] )
+    static final CONSOLE_IN = new GlcProcedureParameter( CONSOLE_ANNOTATED_OBJECT, 'line' )
+    static final CONSOLE_OUT = new GlcProcedureParameter( CONSOLE_ANNOTATED_OBJECT, 'out' )
 
     static GenericType optionalOf( GenericType genericType ) {
-        new GenericType( Optional.name, [ genericType ] as GenericType[] )
+        new GenericType( Optional.name, [ genericType ] as GenericType[], [ ] )
     }
 
     static GenericType mapOf( GenericType keyType, GenericType valueType ) {
-        new GenericType( Map.name, [ keyType, valueType ] as GenericType[] )
+        new GenericType( Map.name, [ keyType, valueType ] as GenericType[], [ ] )
     }
 
     @Subject
@@ -71,6 +79,34 @@ class GlcCompilerSpec extends Specification {
         procedure.inputs == [ new GlcProcedureParameter( LIST_OF_STRINGS_TYPE, 'list' ),
                               new GlcProcedureParameter( optionalOf( mapOf( INTEGER_TYPE, LONG_TYPE ) ), 'opt' ) ]
         procedure.output == new GlcProcedureParameter( mapOf( FLOAT_TYPE, DOUBLE_TYPE ), 'map' )
+    }
+
+    def "A Hello World GLC procedure using IO can be compiled"() {
+        when: 'A Hello World GLC Procedure'
+        glc.compileGlcProcedures( '{ -> @Console out = "hello world" }' )
+        CompiledGlcProcedure procedure = glc.allProcedures.last()
+
+        then: 'The correct number of procedures is compiled'
+        glc.allProcedures.size() == 1
+
+        and: 'The GlcProcedures class provides the latest procedure as expected'
+        procedure.closureName
+        procedure.inputs == [ ]
+        procedure.output == CONSOLE_OUT
+    }
+
+    def "A GLC procedure using GLC IO can be compiled"() {
+        when: 'A GLC Procedure with GlcIO is compiled'
+        glc.compileGlcProcedures( '{ @Console line -> @Console out = line }' )
+        CompiledGlcProcedure procedure = glc.allProcedures.last()
+
+        then: 'The correct number of procedures is compiled'
+        glc.allProcedures.size() == 1
+
+        and: 'The GlcProcedures class provides the latest procedure as expected'
+        procedure.closureName
+        procedure.inputs == [ CONSOLE_IN ]
+        procedure.output == CONSOLE_OUT
     }
 
     def "Many GLC procedures can be compiled"() {
@@ -153,11 +189,11 @@ class GlcCompilerSpec extends Specification {
         ''                  |-1                |'Error at line -1: Invalid GLC procedure. Not a closure.'
         '2'                 |1                 |'Error at line 1: Invalid GLC procedure. Not a closure.'
         '{->}'              |1                 |'Error at line 1: GLC procedure is empty.'
-        '{String s -> 3}'   |1                 |'Error at line 1: GLC Procedure does not return a named variable.'
+        '{String s -> 3}'   |1                 |'Error at line 1: GLC Procedure does not return a named variable: ConstantExpression.'
         '{String s ->\n' +
                 'String t = "0"\n' +
                 'return 4\n' +
-                '}'         |3                 |'Error at line 3: GLC Procedure does not return a named variable.'
+                '}'         |3                 |'Error at line 3: GLC Procedure does not return a named variable: ConstantExpression.'
         '{String s -> s}'   |1                 |'Error at line 1: GLC Procedure depends on its own output.'
         '{String s ->\n' +
                 'String t = "0"\n' +

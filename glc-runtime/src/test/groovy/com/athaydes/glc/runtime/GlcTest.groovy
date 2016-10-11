@@ -18,11 +18,11 @@ trait GlcTest {
     }
 
     GlcProcedureParameter GlcParameter( Class type, String name ) {
-        new GlcProcedureParameter( new GenericType( type.name, GenericType.EMPTY ), name )
+        new GlcProcedureParameter( new GenericType( type.name, GenericType.EMPTY, [ ] ), name )
     }
 
     GlcProcedureParameter GlcParameter( String type, String name ) {
-        new GlcProcedureParameter( new GenericType( type, GenericType.EMPTY ), name )
+        new GlcProcedureParameter( new GenericType( type, GenericType.EMPTY, [ ] ), name )
     }
 
 }

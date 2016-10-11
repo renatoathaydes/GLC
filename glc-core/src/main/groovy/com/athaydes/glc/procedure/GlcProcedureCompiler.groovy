@@ -1,16 +1,18 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcError
-import com.athaydes.glc.driver.GlcDriver
-import com.athaydes.glc.driver.GlcIn
-import com.athaydes.glc.driver.GlcOut
+import com.athaydes.glc.io.api.In
+import com.athaydes.glc.io.api.Out
 import groovy.transform.CompileStatic
 import groovy.transform.Immutable
 import groovy.transform.PackageScope
+import groovy.util.logging.Slf4j
+import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.expr.BinaryExpression
 import org.codehaus.groovy.ast.expr.ClosureExpression
+import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.BlockStatement
@@ -24,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import static com.athaydes.glc.GlcError.preCondition
 
+@Slf4j
 @CompileStatic
 @PackageScope
 class GlcProcedureCompiler {
@@ -31,7 +34,7 @@ class GlcProcedureCompiler {
     private static final Set<String> ALLOWED_NATIVE_TYPES = [
             'float', 'int', 'double', 'long', 'byte', 'short', 'char',
             String.name, Float.name, Integer.name, Double.name, Long.name, Byte.name, Short.name, Character.name,
-            List.name, Map.name, Set.name, Optional.name
+            List.name, Map.name, Set.name, Optional.name, Object.name
     ].toSet().asImmutable()
 
     static final String GLC_CLOSURE_NAME_PREFIX = '___glc_procedure___'
@@ -39,6 +42,7 @@ class GlcProcedureCompiler {
 
     List<CompiledGlcProcedure> compile( Statement statement,
                                         List<CompiledGlcProcedure> existingProcedures ) {
+        log.debug( "Compiling GLC Procedures." )
         final List<CompiledGlcProcedure> result = [ ]
 
         final Set<GlcProcedureParameter> inputs = new HashSet<>(
@@ -48,6 +52,8 @@ class GlcProcedureCompiler {
 
         preCondition( statement instanceof BlockStatement, statement.lineNumber )
         final List<Statement> topLevelStatements = ( ( BlockStatement ) statement ).statements
+
+        log.debug( "Found {} statements. Checking if all statements are valid GLC procedures.", topLevelStatements.size() )
 
         topLevelStatements.eachWithIndex { Statement topLevelStatement, int index ->
             preCondition( topLevelStatement instanceof ExpressionStatement, topLevelStatement.lineNumber )
@@ -63,6 +69,8 @@ class GlcProcedureCompiler {
             verifyParameters( glcProcedure, closureExpression, inputs, outputs )
             result << glcProcedure
         }
+
+        log.debug( "Successfully compile {} GLC procedures", result.size() )
 
         return result
     }
@@ -124,28 +132,43 @@ class GlcProcedureCompiler {
             expression = null
         }
 
+        List<AnnotationNode> annotationNodes = [ ]
+
+        if ( expression instanceof DeclarationExpression ) {
+            def annotations = expression.annotations
+            expression = ( expression as DeclarationExpression ).leftExpression
+
+            // transfer any annotations on the declaration to the resulting expression
+            if ( annotations ) {
+                log.debug( "Annotations in declaration will be considered for expression {}: {}",
+                        expression, annotations )
+                annotationNodes.addAll( annotations )
+            }
+        }
+
         if ( expression instanceof VariableExpression ) {
             List<GlcProcedureParameter> parameters = closureExpression.parameters.collect { Parameter parameter ->
                 validateInput( parameter.type )
-                new GlcProcedureParameter( GenericType.create( parameter.type ), parameter.name )
+                new GlcProcedureParameter( GenericType.create( parameter.type, parameter.annotations ), parameter.name )
             }
 
             final varExp = ( VariableExpression ) expression
             validateOutput( varExp.type )
 
-            final output = new GlcProcedureParameter( GenericType.create( varExp.type ), varExp.name )
+            final output = new GlcProcedureParameter( GenericType.create( varExp.type, annotationNodes ), varExp.name )
             if ( output in parameters ) {
                 throw new GlcError( expression.lineNumber, "GLC Procedure depends on its own output." )
             }
             return new CompiledGlcProcedure( closureName, parameters, output )
         } else {
-            throw new GlcError( lastStatement.lineNumber, "GLC Procedure does not return a named variable." )
+            throw new GlcError( lastStatement.lineNumber,
+                    "GLC Procedure does not return a named variable: ${expression.class.simpleName}." )
         }
     }
 
     static void validateInput( ClassNode input ) {
         boolean ok = false
-        if ( subtypeOf( GlcIn, input ) || subtypeOf( GlcDriver, input ) ) {
+        if ( subtypeOf( In, input ) ) {
             ok = true
         } else if ( input.annotations.collect { it.classNode.name }.contains( Immutable.name ) ) {
             ok = true
@@ -164,7 +187,7 @@ class GlcProcedureCompiler {
 
     static void validateOutput( ClassNode output ) {
         boolean ok = false
-        if ( subtypeOf( GlcOut, output ) ) {
+        if ( subtypeOf( Out, output ) ) {
             ok = true
         } else if ( output.annotations.collect { it.classNode.name }.contains( Immutable.name ) ) {
             ok = true
