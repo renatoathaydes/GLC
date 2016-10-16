@@ -1,6 +1,8 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcError
+import com.athaydes.glc.io.api.GlcIn
+import com.athaydes.glc.io.api.GlcOut
 import com.athaydes.glc.io.api.In
 import com.athaydes.glc.io.api.Out
 import groovy.transform.CompileStatic
@@ -149,13 +151,18 @@ class GlcProcedureCompiler {
         if ( expression instanceof VariableExpression ) {
             List<GlcProcedureParameter> parameters = closureExpression.parameters.collect { Parameter parameter ->
                 validateInput( parameter.type )
-                new GlcProcedureParameter( GenericType.create( parameter.type, parameter.annotations ), parameter.name )
+                def parameterType = GenericType.create( parameter.type, parameter.annotations )
+                validateInputParameter( parameter, parameterType )
+                new GlcProcedureParameter( parameterType, parameter.name )
             }
 
-            final varExp = ( VariableExpression ) expression
-            validateOutput( varExp.type )
+            final outputVariable = ( VariableExpression ) expression
+            validateOutput( outputVariable.type )
 
-            final output = new GlcProcedureParameter( GenericType.create( varExp.type, annotationNodes ), varExp.name )
+            final outputType = GenericType.create( outputVariable.type, annotationNodes )
+            final output = new GlcProcedureParameter( outputType, outputVariable.name )
+            validateOutputParameter( outputVariable, outputType )
+
             if ( output in parameters ) {
                 throw new GlcError( expression.lineNumber, "GLC Procedure depends on its own output." )
             }
@@ -166,7 +173,28 @@ class GlcProcedureCompiler {
         }
     }
 
-    static void validateInput( ClassNode input ) {
+    private static void validateInputParameter( Parameter parameter, GenericType inputType ) {
+        for ( annotationInfo in inputType.annotations ) {
+            def driverType = annotationInfo.driverType
+            if ( !GlcIn.isAssignableFrom( driverType ) ) {
+                throw new GlcError( parameter.lineNumber, "Input parameter ${annotationInfo.type.type} " +
+                        "annotation does not have a GlcIn sub-type as a driver: $driverType" )
+            }
+        }
+    }
+
+    private static void validateOutputParameter( VariableExpression outputExpression,
+                                                 GenericType outputType ) {
+        for ( annotationInfo in outputType.annotations ) {
+            def driverType = annotationInfo.driverType
+            if ( !GlcOut.isAssignableFrom( driverType ) ) {
+                throw new GlcError( outputExpression.lineNumber, "Output parameter ${annotationInfo.type.type} " +
+                        "annotation does not have a GlcOut sub-type as a driver: $driverType" )
+            }
+        }
+    }
+
+    private static void validateInput( ClassNode input ) {
         boolean ok = false
         if ( subtypeOf( In, input ) ) {
             ok = true
@@ -186,7 +214,7 @@ class GlcProcedureCompiler {
         }
     }
 
-    static void validateOutput( ClassNode output ) {
+    private static void validateOutput( ClassNode output ) {
         boolean ok = false
         if ( subtypeOf( Out, output ) ) {
             ok = true

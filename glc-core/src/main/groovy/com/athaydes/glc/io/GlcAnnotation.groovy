@@ -3,14 +3,20 @@ package com.athaydes.glc.io
 import com.athaydes.glc.io.api.GlcIO
 import com.athaydes.glc.io.internal.GlcConsole
 
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
 import java.util.concurrent.TimeUnit
 
 /**
  * Annotations used to annotate GLC Procedure parameters must be themselves annotated with GlcAnnotation
  * as a means to associate the implementation class to the annotation.
  */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
 @interface GlcAnnotation {
-    Class<GlcIO<?>> value()
+    Class<GlcIO> value()
 }
 
 /**

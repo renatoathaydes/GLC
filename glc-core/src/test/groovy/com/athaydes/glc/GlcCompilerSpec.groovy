@@ -1,6 +1,7 @@
 package com.athaydes.glc
 
 import com.athaydes.glc.io.Console
+import com.athaydes.glc.io.internal.GlcConsole
 import com.athaydes.glc.procedure.AnnotationInfo
 import com.athaydes.glc.procedure.CompiledGlcProcedure
 import com.athaydes.glc.procedure.GenericType
@@ -21,7 +22,7 @@ class GlcCompilerSpec extends Specification {
     static final GenericType LIST_OF_FLOATS_TYPE = new GenericType( List.name, [ FLOAT_TYPE ] as GenericType[], [ ] )
 
     static final AnnotationInfo CONSOLE_ANNOTATION = new AnnotationInfo(
-            new GenericType( Console.name, GenericType.EMPTY, [ ] ), [ : ] )
+            new GenericType( Console.name, GenericType.EMPTY, [ ] ), [ : ], GlcConsole )
     static final CONSOLE_ANNOTATED_OBJECT = new GenericType( Object.name, GenericType.EMPTY, [ CONSOLE_ANNOTATION ] )
     static final CONSOLE_IN = new GlcProcedureParameter( CONSOLE_ANNOTATED_OBJECT, 'line' )
     static final CONSOLE_OUT = new GlcProcedureParameter( CONSOLE_ANNOTATED_OBJECT, 'out' )

@@ -1,6 +1,7 @@
 package com.athaydes.glc.procedure
 
 import com.athaydes.glc.GlcError
+import com.athaydes.glc.io.GlcAnnotation
 import groovy.transform.CompileStatic
 import groovy.transform.Immutable
 import groovy.transform.PackageScope
@@ -9,6 +10,7 @@ import groovy.util.logging.Slf4j
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.GenericsType
+import org.codehaus.groovy.ast.expr.ClassExpression
 import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.Expression
 
@@ -44,6 +46,7 @@ class GlcProcedureParameter {
 class AnnotationInfo {
     GenericType type
     Map<String, Object> members
+    Class<?> driverType
 }
 
 @Slf4j
@@ -59,6 +62,14 @@ class GenericType {
 
     static GenericType create( ClassNode node, List<AnnotationNode> annotationNodes = [ ] ) {
         final annotations = annotationNodes.collect { AnnotationNode a ->
+            def glcAnnotation = a.classNode.annotations.find { AnnotationNode an ->
+                an.classNode.name == GlcAnnotation.name
+            }
+            if ( !glcAnnotation ) {
+                throw new GlcError( a.lineNumber, "Annotation ${a.classNode.name} is not annotated with @GlcAnnotation." )
+            }
+            def glcDriverType = (glcAnnotation.members['value'] as ClassExpression).type.typeClass
+
             def members = a.members.collectEntries { String k, Expression v ->
                 if ( v instanceof ConstantExpression ) {
                     [ k, ( ( ConstantExpression ) v ).value ]
@@ -68,7 +79,7 @@ class GenericType {
                 }
             } as Map<String, Object>
 
-            new AnnotationInfo( create( a.classNode ), members )
+            new AnnotationInfo( create( a.classNode ), members, glcDriverType )
         } as List<AnnotationInfo>
 
         new GenericType( node.typeClass.name, parametersOf( node.genericsTypes ), annotations )
@@ -91,7 +102,6 @@ class GlcProcedures {
     private final Map<GlcProcedureParameter, GlcProcedure> inputMap
     private final Map<GlcProcedureParameter, GlcProcedure> outputMap
 
-    final List<GlcProcedure> emptyInputProcedures
     final List<GlcProcedure> allProcedures
 
     GlcProcedures( List<GlcProcedure> glcProcedures ) {
@@ -106,10 +116,6 @@ class GlcProcedures {
         }
 
         this.allProcedures = glcProcedures
-        this.emptyInputProcedures = glcProcedures.findAll { GlcProcedure procedure ->
-            procedure.inputs.empty
-        }.asImmutable()
-
         this.inputMap = inputMap.asImmutable()
         this.outputMap = outputMap.asImmutable()
     }
