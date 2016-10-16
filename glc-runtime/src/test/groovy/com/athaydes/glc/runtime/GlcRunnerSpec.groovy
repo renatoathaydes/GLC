@@ -1,8 +1,14 @@
 package com.athaydes.glc.runtime
 
+import com.athaydes.glc.io.Console
+import com.athaydes.glc.io.api.GlcIn
+import com.athaydes.glc.procedure.AnnotationInfo
+import com.athaydes.glc.procedure.GenericType
 import com.athaydes.glc.procedure.GlcProcedures
 import spock.lang.Specification
 import spock.lang.Subject
+
+import java.util.function.Consumer
 
 class GlcRunnerSpec extends Specification implements GlcTest {
 
@@ -66,6 +72,42 @@ class GlcRunnerSpec extends Specification implements GlcTest {
         glcRunner.valueOf( parameterI ) == 123
         glcRunner.valueOf( parameterJ ) == 444
         glcRunner.valueOf( parameterS ) == '444'
+    }
+
+    def "All GLC procedures whose input has a GLC annotation should be run immediately"() {
+        given: 'A GLC procedure that takes a GLC-annotated input'
+        def lines = [ ]
+        def runnable1 = { String line -> lines << line; line + '!!' }
+
+        def consoleIn = GlcParameter( String, 'line',
+                [ new AnnotationInfo(
+                        type: new GenericType( Console.name, [ ] as GenericType[], [ ] ),
+                        members: [ : ],
+                        driverType: MockConsole ) ] )
+
+        def out = GlcParameter( String, 'out' )
+
+        def procedures = [ GlcProcedure( 'console', [ consoleIn ], out, runnable1 ) ]
+
+        when: 'The GLC Runner runs the procedure'
+        glcRunner.run( new GlcProcedures( procedures ) )
+
+        then: 'The procedure runnable did run'
+        lines == [ 'Hello test' ]
+
+        and: 'The value of the output is correctly assigned'
+        glcRunner.valueOf( out ) == 'Hello test!!'
+    }
+
+}
+
+class MockConsole implements GlcIn<String> {
+    @Override
+    Class<String> getInputType() { String }
+
+    @Override
+    void provide( Consumer<String> consumer ) {
+        consumer.accept( 'Hello test' )
     }
 
 }

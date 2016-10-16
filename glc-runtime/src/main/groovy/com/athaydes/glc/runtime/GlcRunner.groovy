@@ -1,5 +1,7 @@
 package com.athaydes.glc.runtime
 
+import com.athaydes.glc.io.api.GlcIn
+import com.athaydes.glc.procedure.AnnotationInfo
 import com.athaydes.glc.procedure.GlcProcedure
 import com.athaydes.glc.procedure.GlcProcedureParameter
 import com.athaydes.glc.procedure.GlcProcedures
@@ -22,14 +24,50 @@ class GlcRunner {
     }
 
     private void initialRunOf( GlcProcedures glcProcedures ) {
-        final immediateRun = glcProcedures.emptyInputProcedures
+        List<GlcProcedure> emptyInputProcedures = [ ]
+        List<GlcProcedure> driverInputProcedures = [ ]
 
-        immediateRun.parallelStream().forEach { GlcProcedure procedure ->
+        glcProcedures.allProcedures.each { GlcProcedure procedure ->
+            if ( procedure.inputs.empty )
+                emptyInputProcedures << procedure
+            else if ( hasOnlyDriverInputParameters( procedure ) )
+                driverInputProcedures << procedure
+        }
+
+        emptyInputProcedures.parallelStream().forEach { GlcProcedure procedure ->
             def value = procedure.runnable.call()
             valueByParameter[ procedure.output ] = value
         }
 
+        driverInputProcedures.parallelStream().forEach { GlcProcedure procedure ->
+            runDriverProcedure( procedure )
+        }
+
         log.debug( "Values initialized in the initial run: {}", valueByParameter )
+    }
+
+    boolean hasOnlyDriverInputParameters( GlcProcedure glcProcedure ) {
+        for ( input in glcProcedure.inputs ) {
+            if ( !( ( GlcProcedureParameter ) input ).type.annotations ) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private void runDriverProcedure( GlcProcedure procedure ) {
+        for ( inputParameter in procedure.inputs ) {
+            GlcProcedureParameter inputParam = (GlcProcedureParameter) inputParameter
+            for ( AnnotationInfo annotation in inputParam.type.annotations ) {
+                def driver = annotation.driverType.newInstance() as GlcIn
+                driver.provide { input ->
+                    // FIXME the procedure may actually have more than one parameter!
+                    def newValue = apply( procedure, [ input ] )
+                    // FIXME naive implementation, just writing to the Map directly causes Thread issues
+                    valueByParameter[ inputParam ] = newValue
+                }
+            }
+        }
     }
 
     private void cycle( GlcProcedures glcProcedures,
