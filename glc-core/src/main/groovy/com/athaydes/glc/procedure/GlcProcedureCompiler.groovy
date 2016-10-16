@@ -181,7 +181,8 @@ class GlcProcedureCompiler {
                 validateInput( node as ClassNode )
             }
         } else {
-            throw new GlcError( input.lineNumber, "Illegal parameter type (not a GLC entity nor IO): ${input.name}." )
+            throw new GlcError( input.lineNumber, "Illegal parameter type (not a GLC entity nor a native type): " +
+                    "${input.name}." )
         }
     }
 
@@ -200,7 +201,7 @@ class GlcProcedureCompiler {
                 validateOutput( node as ClassNode )
             }
         } else {
-            throw new GlcError( output.lineNumber, "Illegal output (not a GLC entity nor IO): ${output.name}." )
+            throw new GlcError( output.lineNumber, "Illegal output (not a GLC entity nor a native type): ${output.name}." )
         }
     }
 

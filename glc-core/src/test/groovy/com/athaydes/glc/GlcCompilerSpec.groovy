@@ -228,15 +228,15 @@ class GlcCompilerSpec extends Specification {
         '''{ Date date ->
              String v = "0"
              return v
-           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor IO): java.util.Date.'
+           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor a native type): java.util.Date.'
         '''{ Optional<List<Date>> date ->
              String v = "0"
              return v
-           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor IO): java.util.Date.'
+           }'''  |1                 |'Error at line 1: Illegal parameter type (not a GLC entity nor a native type): java.util.Date.'
         '''{ String s ->
              Date date = 0L as Date
              return date
-           }'''  |2                 |'Error at line 2: Illegal output (not a GLC entity nor IO): java.util.Date.'
+           }'''  |2                 |'Error at line 2: Illegal output (not a GLC entity nor a native type): java.util.Date.'
         '''{ String s, int b ->
                String t = "0"
                return t
